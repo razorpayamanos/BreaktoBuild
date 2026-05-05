@@ -1,0 +1,5 @@
+.gitignore
+  92332c87-e621-4a20-80fd-5897e9d2cb6c:2026-05-05T13:49:07.237Z 1-2,4-6
+  92332c87-e621-4a20-80fd-5897e9d2cb6c:2026-05-05T13:49:28.014Z 3
+---
+{"schema_version": "authorship/3.0.0", "base_commit_sha": "4b825dc642cb6eb9a060e54bf8d69288fbee4904", "prompts": {"92332c87-e621-4a20-80fd-5897e9d2cb6c:2026-05-05T13:49:07.237Z": {"agent_id": {"tool": "claude_code", "model": ""}, "human_author": "o.aman@razorpay.com", "accepted_lines": 6, "overriden_lines": 0}, "92332c87-e621-4a20-80fd-5897e9d2cb6c:2026-05-05T13:49:28.014Z": {"agent_id": {"tool": "claude_code", "model": ""}, "human_author": "o.aman@razorpay.com", "accepted_lines": 6, "overriden_lines": 0}}}
