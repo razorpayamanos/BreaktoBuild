@@ -1,0 +1,1060 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Founder's Wall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" />
+<style>
+  /* TASA Orbiter Display — drop a .woff2 file next to index.html
+     (preferred: TASAOrbiterDisplay-Regular.woff2). Otherwise falls back
+     to a system-installed copy or to Inter. */
+  @font-face {
+    font-family: "TASA Orbiter";
+    src: local("TASA Orbiter Display"),
+         local("TASAOrbiterDisplay-Regular"),
+         local("TASA Orbiter"),
+         local("TASAOrbiter-Regular"),
+         url("./TASAOrbiterDisplay-Regular.woff2") format("woff2"),
+         url("./TASAOrbiter-Regular.woff2") format("woff2"),
+         url("./fonts/TASAOrbiterDisplay-Regular.woff2") format("woff2"),
+         url("./fonts/TASAOrbiter-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  html, body, #root {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #020202;
+    overflow: hidden;
+    font-family: "TASA Orbiter", "Inter", system-ui, sans-serif;
+    color: #e8d4ba;
+  }
+  /* Babel takes a moment to transpile; this fades in once React mounts. */
+  #boot {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #6a4a2e; font-family: "TASA Orbiter", "Inter", system-ui, sans-serif;
+    letter-spacing: 1.4px; font-size: 12px;
+    pointer-events: none; transition: opacity 0.3s ease;
+  }
+  #root:not(:empty) ~ #boot { opacity: 0; }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+  <div id="boot">BUILDING THE WALL…</div>
+
+  <!-- React 18 (UMD) -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <!-- Framer Motion 10 (UMD) — exposes window.Motion -->
+  <script crossorigin src="https://unpkg.com/framer-motion@10.18.0/dist/framer-motion.js"></script>
+  <!-- Babel Standalone (transpiles inline JSX + TypeScript in the browser) -->
+  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+  <script type="text/babel" data-presets="react,typescript" data-type="module">
+    /* eslint-disable */
+
+    // --- Bridge UMD globals into local scope so the component below reads
+    // exactly like the Framer .tsx file. -----------------------------------
+    const {
+      useCallback,
+      useEffect,
+      useLayoutEffect,
+      useMemo,
+      useRef,
+      useState,
+    } = React;
+    const FM = window.Motion || window.FramerMotion || {};
+    const { motion, AnimatePresence, useReducedMotion } = FM;
+
+    // Framer-only APIs — no-op in the browser preview.
+    const addPropertyControls = () => {};
+    const ControlType = {
+      Image: "image", Number: "number", Color: "color", Boolean: "boolean",
+    };
+
+    // ============================================================
+    // === BEGIN component (same logic as FoundersWall.tsx) =======
+    // ============================================================
+
+    type Cavity = {
+      col: number; row: number; text: string;
+      founderName?: string; company?: string; linkedin?: string;
+      isUserBrick?: boolean;
+    };
+    type SelectedBrick = { col: number; row: number; screenX: number; screenY: number };
+    type FoundersWallProps = {
+      brickImage: string;
+      wallColumns: number;
+      wallRows: number;
+      brickWidth: number;
+      brickHeight: number;
+      mortarColor: string;
+      wallBackgroundColor: string;
+      enableShatter: boolean;
+      style?: React.CSSProperties;
+    };
+
+    const CAVITY_W_BRICKS = 1;
+    const CAVITY_H_BRICKS = 1;
+    // Source brick image is 990x314 (~3.15:1). Default brick size preserves
+    // that ratio so the brick renders un-squished.
+    const DEFAULT_BRICK_W = 240;
+    const DEFAULT_BRICK_H = 76;
+
+    const preset = (col: number, row: number, founderName: string, company: string): Cavity => ({
+      col, row, founderName, company,
+      text: `${founderName} broke this brick to build ${company}.`,
+    });
+
+    // Hand-picked scattered positions: irregular spacing, no grid feel.
+    // Each cavity occupies (col, row). Inner cluster is visible on landing;
+    // mid ring revealed with a short pan; far reach earned by exploring.
+    const PRESET_CAVITIES: Cavity[] = [
+      // Inner — visible on first paint
+      preset(196, 92,  "Deepinder Goyal",       "Zomato"),
+      preset(202, 94,  "Bhavish Aggarwal",      "Ola"),
+      preset(192, 95,  "Falguni Nayar",         "Nykaa"),
+      preset(203, 97,  "Vijay Shekhar Sharma",  "Paytm"),
+      preset(197, 98,  "Sachin Bansal",         "Flipkart"),
+      preset(193, 101, "Kunal Shah",            "CRED"),
+      preset(203, 103, "Nithin Kamath",         "Zerodha"),
+      preset(196, 105, "Aman Gupta",            "boAt"),
+      // Mid ring — short pan
+      preset(178, 88,  "Ritesh Agarwal",        "OYO"),
+      preset(214, 87,  "Byju Raveendran",       "BYJU'S"),
+      preset(173, 102, "Peyush Bansal",         "Lenskart"),
+      preset(220, 99,  "Harsh Jain",            "Dream11"),
+      preset(186, 112, "Tarun Mehta",           "Ather Energy"),
+      preset(210, 113, "Sridhar Vembu",         "Zoho"),
+      // Far reach — discovered by exploring
+      preset(150, 96,  "Binny Bansal",          "Flipkart"),
+      preset(238, 90,  "Ghazal Alagh",          "Mamaearth"),
+      preset(167, 76,  "Kailash Katkar",        "Quick Heal"),
+      preset(228, 76,  "Vineeta Singh",         "SUGAR Cosmetics"),
+    ];
+
+    const SHARD_CLIPS: string[] = [
+      "polygon(0% 0%, 38% 0%, 52% 28%, 28% 48%, 0% 36%)",
+      "polygon(38% 0%, 72% 0%, 66% 30%, 52% 28%)",
+      "polygon(72% 0%, 100% 0%, 100% 32%, 82% 36%, 66% 30%)",
+      "polygon(0% 36%, 28% 48%, 24% 72%, 0% 66%)",
+      "polygon(28% 48%, 52% 28%, 66% 30%, 60% 52%, 44% 66%, 24% 72%)",
+      "polygon(82% 36%, 100% 32%, 100% 62%, 76% 60%, 66% 46%)",
+      "polygon(76% 60%, 100% 62%, 100% 82%, 80% 76%)",
+      "polygon(0% 66%, 24% 72%, 30% 92%, 8% 100%, 0% 100%)",
+      "polygon(24% 72%, 44% 66%, 52% 90%, 30% 92%)",
+      "polygon(44% 66%, 60% 52%, 76% 60%, 70% 80%, 52% 90%)",
+      "polygon(70% 80%, 80% 76%, 100% 82%, 100% 100%, 76% 100%)",
+      "polygon(52% 90%, 70% 80%, 76% 100%, 52% 100%)",
+      "polygon(30% 92%, 52% 90%, 52% 100%, 30% 100%, 8% 100%)",
+      "polygon(60% 52%, 76% 60%, 66% 46%)",
+    ];
+
+    function clampN(v: number, lo: number, hi: number) {
+      if (lo > hi) return lo;
+      return Math.max(lo, Math.min(hi, v));
+    }
+    function hash2D(col: number, row: number): number {
+      let h = (col * 73856093) ^ (row * 19349663);
+      h = (h ^ (h >>> 16)) >>> 0;
+      return h;
+    }
+    function brickVariation(col: number, row: number) {
+      const h = hash2D(col, row);
+      const u = (n: number) => ((h >>> n) & 0xfff) / 0xfff;
+      const hueShift = (u(0) - 0.5) * 6;
+      const brightness = 1 + (u(7) - 0.5) * 0.18;
+      const dx = (u(13) - 0.5) * 1.2;
+      const dy = (u(19) - 0.5) * 1.2;
+      const rotations = [0, 0.12, -0.12, 0.2];
+      const rotation = rotations[h % 4];
+      return { hueShift, brightness, dx, dy, rotation };
+    }
+    function isTouchEnv(): boolean {
+      if (typeof window === "undefined") return false;
+      return "ontouchstart" in window || (navigator && navigator.maxTouchPoints > 0);
+    }
+    function brickScreenOffset(row: number, brickWidth: number) {
+      return row % 2 === 1 ? brickWidth / 2 : 0;
+    }
+
+    const Brick = React.memo(function Brick({ col, row, brickWidth, brickHeight, brickImage, mortarColor, hovered }) {
+      const v = brickVariation(col, row);
+      const x = col * brickWidth + brickScreenOffset(row, brickWidth);
+      const y = row * brickHeight;
+      return (
+        <div
+          style={{
+            position: "absolute", left: x, top: y, width: brickWidth, height: brickHeight,
+            transform: `translate(${v.dx}px, ${v.dy}px) rotate(${v.rotation}deg)`,
+            backgroundImage: `url(${brickImage})`,
+            backgroundSize: "100% 100%",
+            backgroundRepeat: "no-repeat",
+            filter: `hue-rotate(${v.hueShift}deg) brightness(${v.brightness})`,
+            boxShadow: `inset 0 -2px 3px rgba(0,0,0,0.45), inset 0 2px 2px rgba(255,255,255,0.04), inset 1px 0 0 ${mortarColor}, inset -1px 0 0 ${mortarColor}`,
+            pointerEvents: "none",
+          }}
+        >
+          {hovered && (
+            <div style={{
+              position: "absolute", inset: 0,
+              display: "flex", alignItems: "center",
+              paddingLeft: brickWidth * 0.1,
+              paddingRight: brickWidth * 0.08,
+              fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+              fontWeight: 400,
+              fontSize: brickHeight * 0.4,
+              letterSpacing: -1.2,
+              color: "#c9c9c9",
+              mixBlendMode: "color-burn",
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
+              gap: 4,
+            }}>
+              <span>Break this brick.</span>
+              <span style={{ fontSize: brickHeight * 0.32, transform: "translateY(-2px)" }}>↗</span>
+            </div>
+          )}
+        </div>
+      );
+    });
+
+    function CavityView({ cavity, brickWidth, brickHeight }) {
+      const x = cavity.col * brickWidth + brickScreenOffset(cavity.row, brickWidth);
+      const y = cavity.row * brickHeight;
+      const w = CAVITY_W_BRICKS * brickWidth;
+      const h = CAVITY_H_BRICKS * brickHeight;
+      return (
+        <div style={{
+          position: "absolute", left: x, top: y, width: w, height: h,
+          background: "#030303",
+          boxShadow: `
+            inset 0 3px 8px rgba(0,0,0,0.9),
+            inset 0 -2px 5px rgba(0,0,0,0.65),
+            inset 3px 0 5px rgba(0,0,0,0.7),
+            inset -3px 0 5px rgba(0,0,0,0.7)`,
+          borderRadius: 1,
+          display: "flex", flexDirection: "column", justifyContent: "center",
+          padding: "9px 14px", boxSizing: "border-box", overflow: "hidden", pointerEvents: "none",
+        }}>
+          <div style={{
+            fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+            fontWeight: 400,
+            fontSize: Math.max(12, Math.min(16, brickHeight * 0.21)),
+            lineHeight: 1.18,
+            color: "#686868",
+            letterSpacing: -0.5,
+          }}>
+            {cavity.founderName && cavity.company ? (
+              <>
+                <span style={{ color: "#ffffff" }}>
+                  {cavity.founderName}
+                </span>{" "}broke this brick, to build{" "}
+                <span style={{ color: "#ffffff" }}>
+                  {cavity.company}
+                </span>
+              </>
+            ) : (
+              cavity.text
+            )}
+          </div>
+        </div>
+      );
+    }
+
+
+    function Field({ label, value, onChange, multiline, maxLength, placeholder }) {
+      const baseStyle = {
+        width: "100%", padding: "9px 11px",
+        background: "#0c0805", border: "1px solid #3a2818",
+        borderRadius: 3, color: "#e8d4ba",
+        fontFamily: "inherit", fontSize: 14,
+        boxSizing: "border-box", outline: "none",
+      };
+      return (
+        <label style={{ display: "block", marginBottom: 12 }}>
+          <span style={{
+            display: "block", fontSize: 10, letterSpacing: 1.4,
+            textTransform: "uppercase", color: "#a07050",
+            marginBottom: 5, fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+          }}>{label}</span>
+          {multiline
+            ? <textarea value={value} maxLength={maxLength} placeholder={placeholder}
+                onChange={(e) => onChange(e.target.value)}
+                rows={2} style={{ ...baseStyle, resize: "none" }} />
+            : <input type="text" value={value} placeholder={placeholder}
+                onChange={(e) => onChange(e.target.value)} style={baseStyle} />}
+        </label>
+      );
+    }
+
+    // Underline-style input used across the new form panel.
+    function UnderlineField({ label, value, onChange, placeholder, big, autoFocus }) {
+      return (
+        <div style={{
+          display: "flex", flexDirection: "column", gap: 8,
+          flex: 1, minWidth: 0,
+        }}>
+          <span style={{
+            fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+            fontSize: 24, fontWeight: 400,
+            color: "#ffffff", letterSpacing: -1.44,
+            lineHeight: 1.2,
+          }}>{label}</span>
+          <input
+            type="text"
+            value={value}
+            placeholder={placeholder}
+            autoFocus={autoFocus}
+            onChange={(e) => onChange(e.target.value)}
+            style={{
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              borderBottom: "1px solid rgba(255,255,255,0.45)",
+              outline: "none",
+              padding: "6px 0 8px 0",
+              color: "#ffffff",
+              fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+              fontSize: big ? 32 : 18,
+              fontWeight: 400,
+              letterSpacing: big ? -1.4 : -0.6,
+            }}
+          />
+        </div>
+      );
+    }
+
+    function BreakBrickModal({
+      selected, brickWidth, brickHeight, brickImage,
+      viewportW, viewportH, onCancel, onBreak,
+    }) {
+      const [name, setName] = useState("");
+      const [linkedin, setLinkedin] = useState("");
+      const [company, setCompany] = useState("");
+      const [odds, setOdds] = useState("");
+      const isMobile = viewportW < 768;
+
+      // Focal brick proportions from Figma (697:2457): brick is ~74% of viewport
+      // width on a 1457-wide canvas. Preserve brick image's natural 3.15:1 ratio.
+      const focalW = isMobile
+        ? Math.min(viewportW - 64, brickWidth * 2.4)
+        : Math.min(viewportW * 0.7, 1100);
+      const focalH = focalW / (brickWidth / brickHeight);
+      const focalCenterX = viewportW / 2;
+      const focalCenterY = isMobile ? viewportH * 0.22 : viewportH * 0.32;
+      const focalX = focalCenterX - focalW / 2;
+      const focalY = focalCenterY - focalH / 2;
+      const v = brickVariation(selected.col, selected.row);
+
+      // Preview cavity sits underneath/behind the focal brick (Figma 697:2447)
+      const previewW = isMobile
+        ? Math.min(viewportW - 64, focalW * 0.85)
+        : Math.min(focalW * 0.67, 730);
+      const previewH = isMobile ? 110 : 194;
+      const previewX = focalCenterX - previewW * 0.18;
+      const previewY = focalCenterY + focalH * 0.22;
+
+      const canSubmit = odds.trim().length > 0;
+
+      return (
+        <>
+          {/* Cancel — top right */}
+          <button
+            data-modal="cancel"
+            onClick={onCancel}
+            aria-label="Cancel"
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute", top: 30, right: 36,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              borderRadius: 999,
+              color: "rgba(255,255,255,0.85)",
+              fontSize: 20, cursor: "pointer",
+              width: 44, height: 44, lineHeight: 1,
+              zIndex: 80,
+              fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+            }}
+          >×</button>
+
+          {/* Preview cavity (sits behind the focal brick) */}
+          <motion.div
+            data-modal="preview"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
+            style={{
+              position: "absolute",
+              left: previewX, top: previewY,
+              width: previewW, height: previewH,
+              background: "#030303",
+              boxShadow: `
+                inset 0 4px 12px rgba(0,0,0,0.85),
+                inset 0 -3px 8px rgba(0,0,0,0.65),
+                inset 4px 0 8px rgba(0,0,0,0.7),
+                inset -4px 0 8px rgba(0,0,0,0.7)`,
+              borderRadius: 1,
+              display: "flex", alignItems: "center",
+              padding: "0 56px",
+              boxSizing: "border-box",
+              overflow: "hidden",
+              zIndex: 58,
+            }}
+          >
+            <div style={{
+              opacity: 0.2,
+              fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+              fontSize: isMobile ? 22 : 44.8,
+              fontWeight: 400,
+              color: "#ffffff",
+              letterSpacing: -1.79,
+              lineHeight: 1.05,
+            }}>
+              <span>{name.trim() || "Founder Name"}</span>{" "}
+              <span style={{ color: "#686868" }}>broke this brick, to build</span>{" "}
+              <span>{company.trim() || "Company"}</span>
+            </div>
+          </motion.div>
+
+          {/* Focal brick — animates from grid position to center-top */}
+          <motion.div
+            data-modal="focal"
+            initial={{ left: selected.screenX, top: selected.screenY, width: brickWidth, height: brickHeight }}
+            animate={{ left: focalX, top: focalY, width: focalW, height: focalH }}
+            transition={{ type: "spring", damping: 24, stiffness: 160, mass: 0.95 }}
+            exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            style={{
+              position: "absolute",
+              backgroundImage: `url(${brickImage})`,
+              backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
+              filter: `hue-rotate(${v.hueShift}deg) brightness(${v.brightness * 1.05})`,
+              boxShadow: "inset 0 -6px 12px rgba(0,0,0,0.45), inset 0 6px 8px rgba(255,255,255,0.05), 0 50px 120px rgba(0,0,0,0.85)",
+              zIndex: 60,
+              boxSizing: "border-box",
+            }}
+          />
+
+          {/* Bottom form panel — three fields up top, odds + submit below */}
+          <motion.div
+            data-modal="panel"
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 60, opacity: 0 }}
+            transition={{ duration: 0.45, delay: 0.18, ease: "easeOut" }}
+            style={{
+              position: "absolute",
+              left: 0, right: 0, bottom: 0,
+              padding: isMobile ? "24px 24px 28px" : "40px 60px 44px",
+              boxSizing: "border-box",
+              display: "flex", flexDirection: "column", gap: isMobile ? 24 : 36,
+              zIndex: 70,
+              fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+              color: "#ffffff",
+              background: "linear-gradient(to top, rgba(0,0,0,0.85) 60%, rgba(0,0,0,0))",
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+          >
+            {/* Row 1 — three side-by-side fields */}
+            <div style={{
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              gap: isMobile ? 18 : 48,
+            }}>
+              <UnderlineField
+                label="Founder Name"
+                value={name}
+                onChange={setName}
+                placeholder=""
+                autoFocus
+              />
+              <UnderlineField
+                label="Company Name"
+                value={company}
+                onChange={setCompany}
+                placeholder=""
+              />
+              <UnderlineField
+                label="Linkedin Profile"
+                value={linkedin}
+                onChange={setLinkedin}
+                placeholder=""
+              />
+            </div>
+
+            {/* Row 2 — odds input on left, submit button on right */}
+            <div style={{
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              alignItems: isMobile ? "stretch" : "flex-end",
+              gap: isMobile ? 16 : 32,
+            }}>
+              <div style={{
+                flex: 1, minWidth: 0,
+                borderBottom: "1px solid rgba(255,255,255,0.45)",
+              }}>
+                <input
+                  type="text"
+                  value={odds}
+                  maxLength={80}
+                  placeholder="Excuse broken"
+                  onChange={(e) => setOdds(e.target.value)}
+                  style={{
+                    width: "100%",
+                    background: "transparent",
+                    border: "none",
+                    outline: "none",
+                    padding: "6px 0 12px 0",
+                    color: "#ffffff",
+                    fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+                    fontSize: isMobile ? 32 : 46.5,
+                    fontWeight: 400,
+                    letterSpacing: -2.79,
+                    lineHeight: "63.86px",
+                  }}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  if (!canSubmit) return;
+                  onBreak(odds.trim(), name.trim(), linkedin.trim(), company.trim());
+                }}
+                disabled={!canSubmit}
+                style={{
+                  flex: "0 0 auto",
+                  width: isMobile ? "100%" : 337,
+                  height: isMobile ? 56 : 61,
+                  padding: "10px 20px",
+                  background: canSubmit ? "#b6b6b6" : "#4a4a4a",
+                  color: canSubmit ? "#000000" : "#1a1a1a",
+                  border: "none",
+                  borderRadius: 0,
+                  fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+                  fontSize: isMobile ? 24 : 38,
+                  letterSpacing: -1.4,
+                  fontWeight: 400,
+                  cursor: canSubmit ? "pointer" : "not-allowed",
+                  transition: "background 0.2s",
+                  whiteSpace: "nowrap",
+                }}
+              >Break the Brick</button>
+            </div>
+          </motion.div>
+        </>
+      );
+    }
+
+    function ShatterEffect({ x, y, width, height, brickImage }) {
+      const shards = useMemo(() => SHARD_CLIPS.map((clip, i) => {
+        const angle = (i / SHARD_CLIPS.length) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+        const speed = 220 + Math.random() * 320;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed - 120;
+        const rot = (Math.random() - 0.5) * 720;
+        const delay = (i % 5) * 0.018;
+        return { clip, vx, vy, rot, delay };
+      }), []);
+      const dust = useMemo(() => Array.from({ length: 25 }).map(() => {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 80 + Math.random() * 220;
+        const size = 4 + Math.random() * 11;
+        const colors = ["#5a3a22", "#7a5a3a", "#3a2818", "#8a6a4a"];
+        return {
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 40,
+          size, delay: Math.random() * 0.12,
+          color: colors[Math.floor(Math.random() * colors.length)],
+        };
+      }), []);
+      return (
+        <div style={{
+          position: "absolute", left: x - width / 2, top: y - height / 2,
+          width, height, pointerEvents: "none", zIndex: 75,
+        }}>
+          {shards.map((s, i) => (
+            <motion.div key={`s${i}`}
+              initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
+              animate={{ x: s.vx, y: s.vy + 700, rotate: s.rot, opacity: 0 }}
+              transition={{ duration: 0.85, delay: s.delay, ease: [0.18, 0.55, 0.4, 1] }}
+              style={{
+                position: "absolute", inset: 0,
+                backgroundImage: `url(${brickImage})`,
+                backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
+                clipPath: s.clip, WebkitClipPath: s.clip,
+                filter: "drop-shadow(0 4px 5px rgba(0,0,0,0.55))",
+              }}
+            />
+          ))}
+          {dust.map((d, i) => (
+            <motion.div key={`d${i}`}
+              initial={{ x: 0, y: 0, opacity: 0.85, scale: 1 }}
+              animate={{ x: d.vx, y: d.vy + 220, opacity: 0, scale: 1.7 }}
+              transition={{ duration: 1.0, delay: d.delay, ease: "easeOut" }}
+              style={{
+                position: "absolute",
+                left: width / 2 - d.size / 2, top: height / 2 - d.size / 2,
+                width: d.size, height: d.size,
+                background: d.color, borderRadius: "50%",
+                filter: "blur(1px)",
+              }}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    function FoundersWall({
+      brickImage = "Brick_alpha.png",
+      wallColumns = 400,
+      wallRows = 200,
+      brickWidth = DEFAULT_BRICK_W,
+      brickHeight = DEFAULT_BRICK_H,
+      mortarColor = "#1a120c",
+      wallBackgroundColor = "#020202",
+      enableShatter = true,
+      style,
+    }: Partial<FoundersWallProps>) {
+      const containerRef = useRef(null);
+      const innerRef = useRef(null);
+      const dragRef = useRef(null);
+      const panRef = useRef({ x: 0, y: 0 });
+      const initializedRef = useRef(false);
+
+      const [pan, setPan] = useState({ x: 0, y: 0 });
+      const [viewport, setViewport] = useState({ w: 0, h: 0 });
+      const [hovered, setHovered] = useState(null);
+      const [userCavities, setUserCavities] = useState([]);
+      const [selectedBrick, setSelectedBrick] = useState(null);
+      const [shatter, setShatter] = useState(null);
+      const [shaking, setShaking] = useState(false);
+
+      const isTouch = useMemo(() => isTouchEnv(), []);
+      const prefersReducedMotion = useReducedMotion();
+      const wallPxWidth = wallColumns * brickWidth;
+      const wallPxHeight = wallRows * brickHeight;
+      const brickImageSrc = brickImage && brickImage.length > 0 ? brickImage : "Brick_alpha.png";
+
+      useLayoutEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const update = () => {
+          const r = el.getBoundingClientRect();
+          setViewport({ w: r.width, h: r.height });
+        };
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+      }, []);
+
+      useEffect(() => {
+        if (initializedRef.current) return;
+        if (viewport.w === 0 || viewport.h === 0) return;
+        // Land in the middle of the wall.
+        const cx = (wallColumns / 2) * brickWidth;
+        const cy = (wallRows / 2) * brickHeight;
+        const rawX = viewport.w / 2 - cx;
+        const rawY = viewport.h / 2 - cy;
+        const minX = Math.min(0, viewport.w - wallPxWidth);
+        const minY = Math.min(0, viewport.h - wallPxHeight);
+        const x = clampN(rawX, minX, 0);
+        const y = clampN(rawY, minY, 0);
+        panRef.current = { x, y };
+        setPan({ x, y });
+        initializedRef.current = true;
+      }, [viewport.w, viewport.h, brickWidth, brickHeight, wallPxWidth, wallPxHeight, wallColumns, wallRows]);
+
+      const occupied = useMemo(() => {
+        const s = new Set();
+        const add = (c, r) => s.add(`${c}_${r}`);
+        for (const cv of PRESET_CAVITIES)
+          for (let dc = 0; dc < CAVITY_W_BRICKS; dc++)
+            for (let dr = 0; dr < CAVITY_H_BRICKS; dr++)
+              add(cv.col + dc, cv.row + dr);
+        for (const cv of userCavities)
+          for (let dc = 0; dc < CAVITY_W_BRICKS; dc++)
+            for (let dr = 0; dr < CAVITY_H_BRICKS; dr++)
+              add(cv.col + dc, cv.row + dr);
+        return s;
+      }, [userCavities]);
+
+      const overscan = 5;
+      const visStartCol = Math.max(0, Math.floor(-pan.x / brickWidth) - overscan);
+      const visEndCol = Math.min(wallColumns - 1, Math.ceil((-pan.x + viewport.w) / brickWidth) + overscan);
+      const visStartRow = Math.max(0, Math.floor(-pan.y / brickHeight) - overscan);
+      const visEndRow = Math.min(wallRows - 1, Math.ceil((-pan.y + viewport.h) / brickHeight) + overscan);
+
+      const visibleBricks = [];
+      for (let r = visStartRow; r <= visEndRow; r++) {
+        for (let c = visStartCol; c <= visEndCol; c++) {
+          if (occupied.has(`${c}_${r}`)) continue;
+          visibleBricks.push({ col: c, row: r });
+        }
+      }
+
+      const allCavities = useMemo(() => [...PRESET_CAVITIES, ...userCavities], [userCavities]);
+
+      const visibleCavities = allCavities.filter((cv) =>
+        cv.col + CAVITY_W_BRICKS - 1 >= visStartCol &&
+        cv.col <= visEndCol &&
+        cv.row + CAVITY_H_BRICKS - 1 >= visStartRow &&
+        cv.row <= visEndRow
+      );
+
+      const brickAtScreen = useCallback((clientX, clientY) => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return null;
+        const px = clientX - rect.left - panRef.current.x;
+        const py = clientY - rect.top - panRef.current.y;
+        const r = Math.floor(py / brickHeight);
+        const offsetX = brickScreenOffset(r, brickWidth);
+        const c = Math.floor((px - offsetX) / brickWidth);
+        if (c < 0 || c >= wallColumns || r < 0 || r >= wallRows) return null;
+        return { col: c, row: r };
+      }, [brickWidth, brickHeight, wallColumns, wallRows]);
+
+      const applyPan = useCallback((newX, newY) => {
+        const minX = Math.min(0, viewport.w - wallPxWidth);
+        const minY = Math.min(0, viewport.h - wallPxHeight);
+        const x = clampN(newX, minX, 0);
+        const y = clampN(newY, minY, 0);
+        panRef.current = { x, y };
+        if (innerRef.current) {
+          innerRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+        }
+        const oldStartCol = Math.floor(-pan.x / brickWidth);
+        const oldStartRow = Math.floor(-pan.y / brickHeight);
+        const newStartCol = Math.floor(-x / brickWidth);
+        const newStartRow = Math.floor(-y / brickHeight);
+        if (oldStartCol !== newStartCol || oldStartRow !== newStartRow) {
+          setPan({ x, y });
+        }
+      }, [viewport.w, viewport.h, wallPxWidth, wallPxHeight, brickWidth, brickHeight, pan.x, pan.y]);
+
+      const onPointerDown = useCallback((e) => {
+        if (selectedBrick) return;
+        const target = e.target;
+        if (target.closest && target.closest("[data-modal]")) return;
+        dragRef.current = {
+          active: true,
+          startX: e.clientX, startY: e.clientY,
+          panX: panRef.current.x, panY: panRef.current.y,
+          moved: false, pointerId: e.pointerId,
+        };
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+      }, [selectedBrick]);
+
+      const onPointerMove = useCallback((e) => {
+        if (selectedBrick) return;
+        const d = dragRef.current;
+        if (d && d.active) {
+          const dx = e.clientX - d.startX;
+          const dy = e.clientY - d.startY;
+          if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
+          applyPan(d.panX + dx, d.panY + dy);
+          if (hovered) setHovered(null);
+          return;
+        }
+        if (isTouch) return;
+        const hit = brickAtScreen(e.clientX, e.clientY);
+        if (!hit) { if (hovered) setHovered(null); return; }
+        if (occupied.has(`${hit.col}_${hit.row}`)) {
+          if (hovered) setHovered(null);
+          return;
+        }
+        if (hovered && hovered.col === hit.col && hovered.row === hit.row) return;
+        setHovered({ col: hit.col, row: hit.row });
+      }, [selectedBrick, applyPan, hovered, isTouch, brickAtScreen, occupied]);
+
+      const finishPointer = useCallback((e) => {
+        const d = dragRef.current;
+        if (!d) return;
+        dragRef.current = null;
+        try { e.currentTarget.releasePointerCapture(d.pointerId); } catch {}
+        if (d.moved) { setPan({ ...panRef.current }); return; }
+        const hit = brickAtScreen(e.clientX, e.clientY);
+        if (!hit) return;
+        const inCavity = allCavities.some((cv) =>
+          hit.col >= cv.col && hit.col < cv.col + CAVITY_W_BRICKS &&
+          hit.row >= cv.row && hit.row < cv.row + CAVITY_H_BRICKS
+        );
+        if (inCavity) return;
+        const screenX = panRef.current.x + hit.col * brickWidth + brickScreenOffset(hit.row, brickWidth);
+        const screenY = panRef.current.y + hit.row * brickHeight;
+        setSelectedBrick({ col: hit.col, row: hit.row, screenX, screenY });
+        setHovered(null);
+      }, [brickAtScreen, allCavities, brickWidth]);
+
+      useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const onWheel = (e) => {
+          if (selectedBrick) return;
+          e.preventDefault();
+          applyPan(panRef.current.x - e.deltaX, panRef.current.y - e.deltaY);
+        };
+        el.addEventListener("wheel", onWheel, { passive: false });
+        return () => el.removeEventListener("wheel", onWheel);
+      }, [selectedBrick, applyPan]);
+
+      // Bottom-left CTA click — picks the nearest unbroken brick to the
+      // viewport center and opens the break-brick flow on it.
+      const onCtaClick = useCallback(() => {
+        if (selectedBrick || shatter) return;
+        const centerWallX = -panRef.current.x + viewport.w / 2;
+        const centerWallY = -panRef.current.y + viewport.h / 2;
+        const startCol = Math.floor(centerWallX / brickWidth);
+        const startRow = Math.floor(centerWallY / brickHeight);
+        for (let dist = 0; dist < 20; dist++) {
+          for (let dr = -dist; dr <= dist; dr++) {
+            for (let dc = -dist; dc <= dist; dc++) {
+              if (Math.max(Math.abs(dr), Math.abs(dc)) !== dist) continue;
+              const c = startCol + dc;
+              const r = startRow + dr;
+              if (c < 0 || c >= wallColumns || r < 0 || r >= wallRows) continue;
+              if (occupied.has(`${c}_${r}`)) continue;
+              const screenX =
+                panRef.current.x + c * brickWidth + brickScreenOffset(r, brickWidth);
+              const screenY = panRef.current.y + r * brickHeight;
+              setSelectedBrick({ col: c, row: r, screenX, screenY });
+              setHovered(null);
+              return;
+            }
+          }
+        }
+      }, [viewport.w, viewport.h, brickWidth, brickHeight, wallColumns, wallRows, occupied, selectedBrick, shatter]);
+
+      const handleBreakBrick = useCallback((odds, name, linkedin, company) => {
+        if (!selectedBrick) return;
+        const newCavity = {
+          col: selectedBrick.col, row: selectedBrick.row,
+          text: odds,
+          founderName: name || undefined,
+          company: company || undefined,
+          linkedin: linkedin || undefined,
+          isUserBrick: true,
+        };
+        if (enableShatter && !prefersReducedMotion) {
+          const focalCenterX = viewport.w < 768 ? viewport.w / 2 : viewport.w / 2 - 200;
+          const focalCenterY = viewport.w < 768 ? viewport.h * 0.32 : viewport.h / 2;
+          setShatter({ x: focalCenterX, y: focalCenterY });
+          setShaking(true);
+          window.setTimeout(() => setShaking(false), 280);
+          window.setTimeout(() => {
+            setUserCavities((prev) => [...prev, newCavity]);
+            setShatter(null);
+            setSelectedBrick(null);
+          }, 1000);
+        } else {
+          window.setTimeout(() => {
+            setUserCavities((prev) => [...prev, newCavity]);
+            setSelectedBrick(null);
+          }, 400);
+        }
+      }, [selectedBrick, enableShatter, prefersReducedMotion, viewport.w, viewport.h]);
+
+      const cursor = selectedBrick ? "default" : (dragRef.current?.active ? "grabbing" : "grab");
+
+      return (
+        <div
+          ref={containerRef}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={finishPointer}
+          onPointerCancel={finishPointer}
+          onPointerLeave={() => { if (!dragRef.current?.active) setHovered(null); }}
+          style={{
+            position: "relative", width: "100%", height: "100%", overflow: "hidden",
+            background: wallBackgroundColor, cursor, touchAction: "none", userSelect: "none",
+            ...style,
+          }}
+        >
+          <div style={{
+            position: "absolute", inset: 0,
+            background: `radial-gradient(ellipse at 50% 50%, ${mortarColor} 0%, ${wallBackgroundColor} 90%)`,
+            pointerEvents: "none",
+          }} />
+
+          <motion.div
+            animate={shaking
+              ? { x: [0, -6, 6, -4, 4, -2, 0], y: [0, 3, -3, 2, -2, 1, 0] }
+              : { x: 0, y: 0 }}
+            transition={shaking ? { duration: 0.26, ease: "easeOut" } : { duration: 0 }}
+            style={{ position: "absolute", inset: 0 }}
+          >
+            <div ref={innerRef} style={{
+              position: "absolute", left: 0, top: 0,
+              width: wallPxWidth, height: wallPxHeight,
+              transform: `translate3d(${pan.x}px, ${pan.y}px, 0)`,
+              willChange: "transform",
+            }}>
+              {visibleBricks.map(({ col, row }) => {
+                if (selectedBrick && selectedBrick.col === col && selectedBrick.row === row) return null;
+                const isHovered =
+                  !!hovered && !isTouch && !selectedBrick &&
+                  hovered.col === col && hovered.row === row;
+                return (
+                  <Brick key={`${col}_${row}`}
+                    col={col} row={row}
+                    brickWidth={brickWidth} brickHeight={brickHeight}
+                    brickImage={brickImageSrc} mortarColor={mortarColor}
+                    hovered={isHovered}
+                  />
+                );
+              })}
+              {visibleCavities.map((cv) => (
+                <CavityView key={`cav_${cv.col}_${cv.row}_${cv.isUserBrick ? "u" : "p"}`}
+                  cavity={cv} brickWidth={brickWidth} brickHeight={brickHeight}
+                />
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Top-left: Razorpay logo + title + subtitle (sizing from Figma) */}
+          <header style={{
+            position: "absolute",
+            top: 33, left: 42,
+            display: "flex", alignItems: "baseline", gap: 26,
+            zIndex: 30,
+            pointerEvents: "none",
+            userSelect: "none",
+          }}>
+            <img
+              src="./RazorpayFullLogo.svg"
+              alt="Razorpay"
+              style={{ height: 37.5, width: "auto", display: "block", alignSelf: "center" }}
+            />
+            <span style={{
+              fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+              fontSize: 41.16,
+              fontWeight: 400,
+              color: "#ffffff",
+              letterSpacing: -0.82,
+              lineHeight: "32.93px",
+              whiteSpace: "nowrap",
+            }}>
+              Wall of Impossible Odds.
+            </span>
+            <span style={{
+              fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+              fontSize: 22.8,
+              fontWeight: 400,
+              color: "#ffffff",
+              letterSpacing: -0.68,
+              whiteSpace: "nowrap",
+            }}>
+              Explore the stories of Titans who broke to build.
+            </span>
+          </header>
+
+          {/* Bottom-left: CTA card (sizing & rounded background from Figma 834:185) */}
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onCtaClick}
+            style={{
+              position: "absolute",
+              bottom: 32, left: 32,
+              width: 383,
+              height: 113,
+              padding: "27px 25px 28px 25px",
+              boxSizing: "border-box",
+              background: "rgba(3,3,3,0.6)",
+              borderRadius: 14.6,
+              backdropFilter: "blur(2px)",
+              WebkitBackdropFilter: "blur(2px)",
+              zIndex: 30,
+              cursor: "pointer",
+              userSelect: "none",
+              pointerEvents: selectedBrick || shatter ? "none" : "auto",
+            }}
+          >
+            <div style={{
+              fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+              fontSize: 31.2,
+              fontWeight: 400,
+              color: "#ffffff",
+              letterSpacing: -1.87,
+              lineHeight: "24.94px",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}>
+              <span>Break your brick.</span>
+              <span style={{
+                fontSize: 22,
+                lineHeight: 1,
+                transform: "translateY(-2px)",
+                color: "#ffffff",
+              }}>↗</span>
+            </div>
+            <div style={{
+              fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+              fontSize: 18,
+              fontWeight: 400,
+              color: "#9a9a9a",
+              marginTop: 14,
+              letterSpacing: -0.54,
+              lineHeight: "normal",
+            }}>
+              Beaten your odds and built? Share your story.
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {(selectedBrick || shatter) && (
+              <motion.div key="dim"
+                initial={{ opacity: 0 }} animate={{ opacity: 0.7 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                style={{ position: "absolute", inset: 0, background: "#000", zIndex: 50, pointerEvents: "auto" }}
+              />
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {selectedBrick && !shatter && (
+              <BreakBrickModal key="modal"
+                selected={selectedBrick}
+                brickWidth={brickWidth} brickHeight={brickHeight}
+                brickImage={brickImageSrc}
+                viewportW={viewport.w} viewportH={viewport.h}
+                onCancel={() => setSelectedBrick(null)}
+                onBreak={handleBreakBrick}
+              />
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {shatter && (
+              <ShatterEffect key="shatter"
+                x={shatter.x} y={shatter.y}
+                width={brickWidth * (viewport.w < 768 ? 2 : 2.6)}
+                height={brickHeight * (viewport.w < 768 ? 2 : 2.6)}
+                brickImage={brickImageSrc}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // === END component ==========================================
+    // ============================================================
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(
+      <FoundersWall brickImage="Brick_alpha.png" />
+    );
+  </script>
+</body>
+</html>
