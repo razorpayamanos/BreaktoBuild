@@ -105,9 +105,10 @@
     const CAVITY_W_BRICKS = 1;
     const CAVITY_H_BRICKS = 1;
     // Source brick image is 990x314 (~3.15:1). Default brick size preserves
-    // that ratio so the brick renders un-squished.
-    const DEFAULT_BRICK_W = 240;
-    const DEFAULT_BRICK_H = 76;
+    // that ratio so the brick renders un-squished. Sized so ~4 bricks span
+    // a 1440-wide viewport — matches the zoom level in the design ref.
+    const DEFAULT_BRICK_W = 360;
+    const DEFAULT_BRICK_H = 114;
 
     const preset = (col: number, row: number, founderName: string, company: string): Cavity => ({
       col, row, founderName, company,
