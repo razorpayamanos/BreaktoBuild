@@ -110,37 +110,267 @@
     const DEFAULT_BRICK_W = 360;
     const DEFAULT_BRICK_H = 114;
 
-    const preset = (col: number, row: number, founderName: string, company: string): Cavity => ({
-      col, row, founderName, company,
-      text: `${founderName} broke this brick to build ${company}.`,
-    });
-
-    // Hand-picked scattered positions: irregular spacing, no grid feel.
-    // Each cavity occupies (col, row). Inner cluster is visible on landing;
-    // mid ring revealed with a short pan; far reach earned by exploring.
-    const PRESET_CAVITIES: Cavity[] = [
-      // Inner — visible on first paint
-      preset(196, 92,  "Deepinder Goyal",       "Zomato"),
-      preset(202, 94,  "Bhavish Aggarwal",      "Ola"),
-      preset(192, 95,  "Falguni Nayar",         "Nykaa"),
-      preset(203, 97,  "Vijay Shekhar Sharma",  "Paytm"),
-      preset(197, 98,  "Sachin Bansal",         "Flipkart"),
-      preset(193, 101, "Kunal Shah",            "CRED"),
-      preset(203, 103, "Nithin Kamath",         "Zerodha"),
-      preset(196, 105, "Aman Gupta",            "boAt"),
-      // Mid ring — short pan
-      preset(178, 88,  "Ritesh Agarwal",        "OYO"),
-      preset(214, 87,  "Byju Raveendran",       "BYJU'S"),
-      preset(173, 102, "Peyush Bansal",         "Lenskart"),
-      preset(220, 99,  "Harsh Jain",            "Dream11"),
-      preset(186, 112, "Tarun Mehta",           "Ather Energy"),
-      preset(210, 113, "Sridhar Vembu",         "Zoho"),
-      // Far reach — discovered by exploring
-      preset(150, 96,  "Binny Bansal",          "Flipkart"),
-      preset(238, 90,  "Ghazal Alagh",          "Mamaearth"),
-      preset(167, 76,  "Kailash Katkar",        "Quick Heal"),
-      preset(228, 76,  "Vineeta Singh",         "SUGAR Cosmetics"),
+    // Pool of founders/companies cycled through generated cavities.
+    const FOUNDER_POOL = [
+      ["Deepinder Goyal", "Zomato"],
+      ["Bhavish Aggarwal", "Ola"],
+      ["Falguni Nayar", "Nykaa"],
+      ["Vijay Shekhar Sharma", "Paytm"],
+      ["Sachin Bansal", "Flipkart"],
+      ["Kunal Shah", "CRED"],
+      ["Nithin Kamath", "Zerodha"],
+      ["Aman Gupta", "boAt"],
+      ["Ritesh Agarwal", "OYO"],
+      ["Byju Raveendran", "BYJU'S"],
+      ["Peyush Bansal", "Lenskart"],
+      ["Harsh Jain", "Dream11"],
+      ["Tarun Mehta", "Ather Energy"],
+      ["Sridhar Vembu", "Zoho"],
+      ["Binny Bansal", "Flipkart"],
+      ["Ghazal Alagh", "Mamaearth"],
+      ["Kailash Katkar", "Quick Heal"],
+      ["Vineeta Singh", "SUGAR Cosmetics"],
+      ["Mukesh Ambani", "Reliance"],
+      ["Ratan Tata", "Tata Group"],
+      ["Anand Mahindra", "Mahindra"],
+      ["Adar Poonawalla", "Serum Institute"],
+      ["Narayana Murthy", "Infosys"],
+      ["Shiv Nadar", "HCL"],
+      ["Gautam Adani", "Adani"],
+      ["Kumar Mangalam Birla", "Aditya Birla"],
+      ["Adi Godrej", "Godrej"],
+      ["Sajjan Jindal", "JSW"],
+      ["Kiran Mazumdar-Shaw", "Biocon"],
+      ["Dilip Shanghvi", "Sun Pharma"],
+      ["Uday Kotak", "Kotak Mahindra"],
+      ["Sunil Mittal", "Bharti Airtel"],
+      ["Pawan Munjal", "Hero MotoCorp"],
+      ["Deepak Parekh", "HDFC"],
+      ["A. M. Naik", "L&T"],
+      ["Cyrus Poonawalla", "Serum Institute"],
+      ["Yusuf Hamied", "Cipla"],
+      ["K. Anji Reddy", "Dr. Reddy's"],
+      ["Sanjeev Bikhchandani", "Naukri"],
+      ["Deep Kalra", "MakeMyTrip"],
+      ["Yashish Dahiya", "PolicyBazaar"],
+      ["Anupam Mittal", "Shaadi.com"],
+      ["Naveen Tewari", "InMobi"],
+      ["Sahil Barua", "Delhivery"],
+      ["Sameer Nigam", "PhonePe"],
+      ["Albinder Dhindsa", "Blinkit"],
+      ["Kunal Bahl", "Snapdeal"],
+      ["Rohit Bansal", "Snapdeal"],
+      ["Hari Menon", "BigBasket"],
+      ["Mukesh Bansal", "Myntra"],
+      ["Ankit Nagori", "Cure.fit"],
+      ["Gaurav Munjal", "Unacademy"],
+      ["Alakh Pandey", "Physics Wallah"],
+      ["Shashank Kumar", "Razorpay"],
+      ["Harshil Mathur", "Razorpay"],
+      ["Sujeet Kumar", "Udaan"],
+      ["Vidit Aatrey", "Meesho"],
+      ["Lalit Keshre", "Groww"],
+      ["Ashneer Grover", "BharatPe"],
+      ["Suchi Mukherjee", "Limeroad"],
+      ["Richa Kar", "Zivame"],
+      ["Upasana Taku", "MobiKwik"],
+      ["Bipin Preet Singh", "MobiKwik"],
+      ["Varun Alagh", "Mamaearth"],
+      ["Ronnie Screwvala", "UpGrad"],
+      ["Tushar Vashisht", "HealthifyMe"],
+      ["Raghav Verma", "Chaayos"],
+      ["Murugavel Janakiraman", "BharatMatrimony"],
+      ["Ashish Hemrajani", "BookMyShow"],
+      ["Bhavin Turakhia", "Zeta"],
+      ["Subhash Chandra", "Zee"],
+      ["Niraj Singh", "Spinny"],
+      ["Manoj Bhargava", "5-Hour Energy"],
+      ["Phanindra Sama", "redBus"],
+      ["Aloke Bajpai", "ixigo"],
+      ["Akhil Gupta", "NoBroker"],
+      ["Manish Patel", "MSwipe"],
+      ["Bipul Sinha", "Rubrik"],
+      ["Naveen Jain", "InfoSpace"],
+      ["Divyank Turakhia", "Directi"],
+      ["Sumant Sinha", "ReNew Power"],
+      ["Vinod Khosla", "Khosla Ventures"],
+      ["Hrithik Roshan", "HRX"],
+      ["Amit Khatri", "Noise"],
+      ["Tarun Gupta", "Boult Audio"],
+      ["Sameer Maheshwari", "HealthKart"],
+      ["Chakradhar Gade", "Country Delight"],
+      ["Abhay Hanjura", "Licious"],
+      ["Shan Kadavil", "Fresh To Home"],
+      ["Tanuj Shori", "Square Yards"],
+      ["Ajith Karimpana", "Furlenco"],
+      ["Anuj Srivastava", "LivSpace"],
+      ["Srikanth Iyer", "HomeLane"],
+      ["Geetansh Bamania", "Rentomojo"],
+      ["Ankit Garg", "Wakefit"],
+      ["Ambareesh Murty", "Pepperfry"],
+      ["Ashish Goel", "Urban Ladder"],
+      ["Vamsi Krishna", "Vedantu"],
+      ["Karan Bajaj", "WhiteHat Jr"],
+      ["Manan Khurma", "Cuemath"],
+      ["Tanushree Nagori", "Doubtnut"],
+      ["Ashwin Damera", "Eruditus"],
+      ["Shashank ND", "Practo"],
+      ["Prashant Tandon", "1mg"],
+      ["Siddharth Shah", "Pharmeasy"],
+      ["Saurabh Arora", "Lybrate"],
+      ["Vasanth Kamath", "Smallcase"],
+      ["Akash Sinha", "Cashfree"],
+      ["Lokvir Kapoor", "Pine Labs"],
+      ["Abhijit Bose", "EzeTap"],
+      ["Sumit Maniyar", "Rupeek"],
+      ["Harshvardhan Lunia", "Lendingkart"],
+      ["Sashank Rishyasringa", "Capital Float"],
+      ["Harsh Pokharna", "OkCredit"],
+      ["Ravish Naresh", "Khatabook"],
+      ["Rajan Bajaj", "Slice"],
+      ["Jitendra Gupta", "Jupiter"],
+      ["Vinay Bagri", "Niyo"],
+      ["Anish Achuthan", "Open"],
+      ["Ashish Kashyap", "INDmoney"],
+      ["Ankush Sachdeva", "ShareChat"],
+      ["Azhar Iqubal", "Inshorts"],
+      ["Virendra Gupta", "DailyHunt"],
+      ["Ranjeet Pratap Singh", "Pratilipi"],
+      ["Sidharth Gupta", "Treebo"],
+      ["Vaibhav Aggarwal", "FabHotels"],
+      ["Dhruv Shringi", "Yatra"],
+      ["Amit Jain", "CarDekho"],
+      ["Vikram Chopra", "Cars24"],
+      ["Varun Dua", "Acko"],
+      ["Abhishek Bansal", "Shadowfax"],
+      ["Saahil Goel", "Shiprocket"],
+      ["Deepak Garg", "Rivigo"],
+      ["Rahul Garg", "Moglix"],
+      ["Asish Mohapatra", "OfBusiness"],
+      ["Aaditya Sharda", "Infra.Market"],
+      ["Thirukumaran Nagarajan", "Ninjacart"],
+      ["Siddhartha Lal", "Eicher"],
+      ["Venu Srinivasan", "TVS Motor"],
+      ["Madhukar Parekh", "Pidilite"],
+      ["Subroto Bagchi", "Mindtree"],
+      ["Anand Deshpande", "Persistent"],
+      ["Rajendra Pawar", "NIIT"],
+      ["C. P. Gurnani", "Tech Mahindra"],
+      ["Roshni Nadar", "HCL Tech"],
+      ["Rishad Premji", "Wipro"],
+      ["Saurabh Mukherjea", "Marcellus"],
+      ["Dhiraj Rajaram", "Mu Sigma"],
+      ["Srikanth Velamakanni", "Fractal"],
+      ["Hitesh Oberoi", "Naukri"],
+      ["Sameer Mehta", "boAt"],
+      ["Nikhil Kamath", "Zerodha"],
+      ["Pranay Chulet", "Quikr"],
+      ["Sandeep Aggarwal", "Shopclues"],
+      ["Radhika Aggarwal", "Shopclues"],
+      ["Kavin Bharti Mittal", "Hike"],
+      ["Namita Thapar", "Emcure"],
     ];
+
+    // Camera-clipping cavity generation: compute on-demand per (col, row).
+    // No global array; the React component iterates only the visible range.
+    //
+    // Random scatter with strict non-adjacency: cavities are admitted across
+    // ALL THREE color classes of the brick-wall hex 3-coloring, not just one,
+    // so the placement has no visible "every-Nth-cell" lattice. The 3-coloring
+    // is used purely as a correctness scaffold: it guarantees that any two
+    // same-color cells are never visual neighbors, which we exploit for a
+    // recursive admission rule that's per-cell deterministic.
+    //
+    // Color formula: (c + 2·(r mod 2)) mod 3. Every cell's 6 visual neighbors
+    // (3 same-row + cross-row pairs picked by row-parity offset) split exactly
+    // 3-and-3 between the two OTHER colors.
+    //
+    // Admission rule (each rule references only the previous color's, so the
+    // recursion bottoms out in ≤3 levels):
+    //   • color 0 → density gate ρ₀                   (no neighbor check)
+    //   • color 1 → density gate ρ₁ AND no color-0 visual nbr is a cavity
+    //   • color 2 → density gate ρ₂ AND no color-0 or color-1 visual nbr is
+    //               a cavity
+    //
+    // Non-adjacency proof sketch: if cell X is a color-0 cavity, every one of
+    // its 6 visual neighbors is color 1 or 2 — and both of those rules reject
+    // any cell whose color-0 neighbor is a cavity, so none of X's neighbors
+    // can be cavities. Symmetric for X color 1 or 2. ∎
+    //
+    // Density tuning (independence approximation):
+    //   total ≈ ρ₀/3 + ρ₁·(1-ρ₀)³/3 + ρ₂·(1-ρ₀)³·(1-ρ₁·(1-ρ₀)³)³/3
+    //   For ρ₀=0.35, ρ₁=1, ρ₂=1: 11.7% + 9.2% + 3.5% ≈ 24%, split 48/38/14
+    //   across colors — no single class dominates, so the lattice is hidden.
+    const CAVITY_RHO_0 = 0.35;
+    const CAVITY_RHO_1 = 1.00;
+    const CAVITY_RHO_2 = 1.00;
+    const CAVITY_COL_LIMIT = 400;
+    const CAVITY_ROW_LIMIT = 200;
+    function cavityHash(c, r) {
+      let h = (c * 73856093) ^ (r * 19349663);
+      h = (h ^ (h >>> 16)) >>> 0;
+      return h;
+    }
+    function cavityHashU(h) { return (h & 0xffff) / 0xffff; }
+    function cavityColor(c, r) {
+      const m = (c + 2 * (r & 1)) % 3;
+      return m < 0 ? m + 3 : m;
+    }
+    function cavityInBounds(c, r) {
+      return c >= 0 && c < CAVITY_COL_LIMIT && r >= 0 && r < CAVITY_ROW_LIMIT;
+    }
+    // Visual 6-neighbor offsets — parity-aware due to brick row offset.
+    function cavityForEachVisualNbr(c, r, fn) {
+      const isOdd = (r & 1) === 1;
+      const xL = isOdd ? c     : c - 1;
+      const xR = isOdd ? c + 1 : c;
+      if (fn(c - 1, r))     return true;
+      if (fn(c + 1, r))     return true;
+      if (fn(xL, r - 1))    return true;
+      if (fn(xR, r - 1))    return true;
+      if (fn(xL, r + 1))    return true;
+      if (fn(xR, r + 1))    return true;
+      return false;
+    }
+    function isColor0Cavity(c, r) {
+      if (!cavityInBounds(c, r)) return false;
+      if (cavityColor(c, r) !== 0) return false;
+      return cavityHashU(cavityHash(c, r)) < CAVITY_RHO_0;
+    }
+    function isColor1Cavity(c, r) {
+      if (!cavityInBounds(c, r)) return false;
+      if (cavityColor(c, r) !== 1) return false;
+      if (cavityHashU(cavityHash(c, r)) >= CAVITY_RHO_1) return false;
+      // Reject if any visual nbr is a color-0 cavity.
+      const blocked = cavityForEachVisualNbr(c, r, isColor0Cavity);
+      return !blocked;
+    }
+    function isColor2Cavity(c, r) {
+      if (!cavityInBounds(c, r)) return false;
+      if (cavityColor(c, r) !== 2) return false;
+      if (cavityHashU(cavityHash(c, r)) >= CAVITY_RHO_2) return false;
+      // Reject if any visual nbr is a color-0 OR color-1 cavity.
+      const blocked = cavityForEachVisualNbr(c, r, (nc, nr) =>
+        isColor0Cavity(nc, nr) || isColor1Cavity(nc, nr)
+      );
+      return !blocked;
+    }
+    function computePresetCavity(c, r) {
+      if (!cavityInBounds(c, r)) return null;
+      const color = cavityColor(c, r);
+      const isCavity =
+        color === 0 ? isColor0Cavity(c, r) :
+        color === 1 ? isColor1Cavity(c, r) :
+                      isColor2Cavity(c, r);
+      if (!isCavity) return null;
+      const h = cavityHash(c, r);
+      const f = FOUNDER_POOL[h % FOUNDER_POOL.length];
+      return {
+        col: c, row: r,
+        founderName: f[0], company: f[1],
+        text: `${f[0]} broke this brick to build ${f[1]}.`,
+      };
+    }
 
     const SHARD_CLIPS: string[] = [
       "polygon(0% 0%, 38% 0%, 52% 28%, 28% 48%, 0% 36%)",
@@ -207,21 +437,21 @@
           {hovered && (
             <div style={{
               position: "absolute", inset: 0,
-              display: "flex", alignItems: "center", justifyContent: "flex-end",
-              paddingLeft: brickWidth * 0.08,
-              paddingRight: brickWidth * 0.1,
+              display: "flex", alignItems: "flex-end", justifyContent: "flex-end",
+              paddingRight: brickWidth * 0.05,
+              paddingBottom: brickHeight * 0.12,
               fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
               fontWeight: 400,
-              fontSize: brickHeight * 0.4,
-              letterSpacing: -1.2,
+              fontSize: brickHeight * 0.2,
+              letterSpacing: -0.6,
               color: "#c9c9c9",
               mixBlendMode: "color-burn",
               whiteSpace: "nowrap",
               pointerEvents: "none",
-              gap: 6,
+              gap: 4,
             }}>
               <span>Break this brick.</span>
-              <span style={{ fontSize: brickHeight * 0.36, transform: "translateY(-1px)" }}>↗</span>
+              <span style={{ fontSize: brickHeight * 0.18, transform: "translateY(-1px)" }}>↗</span>
             </div>
           )}
         </div>
@@ -233,6 +463,10 @@
       const y = cavity.row * brickHeight;
       const w = CAVITY_W_BRICKS * brickWidth;
       const h = CAVITY_H_BRICKS * brickHeight;
+      // Figma 834:166 — TASA Orbiter Display 23.728px / 1.2 / -0.9491px @ 360×114 brick.
+      // Scale relative to brickHeight so the spec holds at any zoom.
+      const fontSize = brickHeight * 0.208;
+      const letterSpacing = fontSize * -0.04;
       return (
         <div style={{
           position: "absolute", left: x, top: y, width: w, height: h,
@@ -244,24 +478,23 @@
             inset -3px 0 5px rgba(0,0,0,0.7)`,
           borderRadius: 1,
           display: "flex", flexDirection: "column", justifyContent: "center",
-          padding: "9px 14px", boxSizing: "border-box", overflow: "hidden", pointerEvents: "none",
+          padding: `${brickHeight * 0.08}px ${brickWidth * 0.05}px`,
+          boxSizing: "border-box", overflow: "hidden", pointerEvents: "none",
         }}>
           <div style={{
-            fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
+            fontFamily: '"TASA Orbiter Display", "TASA Orbiter", "Inter", system-ui, sans-serif',
             fontWeight: 400,
-            fontSize: Math.max(12, Math.min(16, brickHeight * 0.21)),
-            lineHeight: 1.18,
+            fontSize,
+            lineHeight: 1.2,
+            letterSpacing,
             color: "#686868",
-            letterSpacing: -0.5,
+            wordBreak: "break-word",
           }}>
             {cavity.founderName && cavity.company ? (
               <>
-                <span style={{ color: "#ffffff" }}>
-                  {cavity.founderName}
-                </span>{" "}broke this brick, to build{" "}
-                <span style={{ color: "#ffffff" }}>
-                  {cavity.company}
-                </span>
+                <span style={{ color: "#ffffff" }}>{cavity.founderName}</span>
+                {" broke this brick, to build "}
+                <span style={{ color: "#ffffff" }}>{cavity.company}</span>
               </>
             ) : (
               cavity.text
@@ -675,25 +908,42 @@
         initializedRef.current = true;
       }, [viewport.w, viewport.h, brickWidth, brickHeight, wallPxWidth, wallPxHeight, wallColumns, wallRows]);
 
-      const occupied = useMemo(() => {
-        const s = new Set();
-        const add = (c, r) => s.add(`${c}_${r}`);
-        for (const cv of PRESET_CAVITIES)
-          for (let dc = 0; dc < CAVITY_W_BRICKS; dc++)
-            for (let dr = 0; dr < CAVITY_H_BRICKS; dr++)
-              add(cv.col + dc, cv.row + dr);
-        for (const cv of userCavities)
-          for (let dc = 0; dc < CAVITY_W_BRICKS; dc++)
-            for (let dr = 0; dr < CAVITY_H_BRICKS; dr++)
-              add(cv.col + dc, cv.row + dr);
-        return s;
-      }, [userCavities]);
-
-      const overscan = 5;
+      // Viewport-bounded cavity rendering (camera clipping). Cavities outside
+      // the visible+overscan range are never generated, allocated, or compared.
+      const overscan = 12;
       const visStartCol = Math.max(0, Math.floor(-pan.x / brickWidth) - overscan);
       const visEndCol = Math.min(wallColumns - 1, Math.ceil((-pan.x + viewport.w) / brickWidth) + overscan);
       const visStartRow = Math.max(0, Math.floor(-pan.y / brickHeight) - overscan);
       const visEndRow = Math.min(wallRows - 1, Math.ceil((-pan.y + viewport.h) / brickHeight) + overscan);
+
+      const userCavityMap = useMemo(() => {
+        const m = new Map();
+        for (const cv of userCavities) m.set(`${cv.col}_${cv.row}`, cv);
+        return m;
+      }, [userCavities]);
+
+      const visibleCavities = useMemo(() => {
+        const out = [];
+        for (let r = visStartRow; r <= visEndRow; r++) {
+          for (let c = visStartCol; c <= visEndCol; c++) {
+            const userCav = userCavityMap.get(`${c}_${r}`);
+            if (userCav) { out.push(userCav); continue; }
+            const presetCav = computePresetCavity(c, r);
+            if (presetCav) out.push(presetCav);
+          }
+        }
+        return out;
+      }, [visStartCol, visEndCol, visStartRow, visEndRow, userCavityMap]);
+
+      const occupied = useMemo(() => {
+        const s = new Set();
+        for (const cv of visibleCavities) {
+          for (let dc = 0; dc < CAVITY_W_BRICKS; dc++)
+            for (let dr = 0; dr < CAVITY_H_BRICKS; dr++)
+              s.add(`${cv.col + dc}_${cv.row + dr}`);
+        }
+        return s;
+      }, [visibleCavities]);
 
       const visibleBricks = [];
       for (let r = visStartRow; r <= visEndRow; r++) {
@@ -702,15 +952,6 @@
           visibleBricks.push({ col: c, row: r });
         }
       }
-
-      const allCavities = useMemo(() => [...PRESET_CAVITIES, ...userCavities], [userCavities]);
-
-      const visibleCavities = allCavities.filter((cv) =>
-        cv.col + CAVITY_W_BRICKS - 1 >= visStartCol &&
-        cv.col <= visEndCol &&
-        cv.row + CAVITY_H_BRICKS - 1 >= visStartRow &&
-        cv.row <= visEndRow
-      );
 
       const brickAtScreen = useCallback((clientX, clientY) => {
         const rect = containerRef.current?.getBoundingClientRect();
@@ -785,16 +1026,14 @@
         if (d.moved) { setPan({ ...panRef.current }); return; }
         const hit = brickAtScreen(e.clientX, e.clientY);
         if (!hit) return;
-        const inCavity = allCavities.some((cv) =>
-          hit.col >= cv.col && hit.col < cv.col + CAVITY_W_BRICKS &&
-          hit.row >= cv.row && hit.row < cv.row + CAVITY_H_BRICKS
-        );
+        const hitKey = `${hit.col}_${hit.row}`;
+        const inCavity = userCavityMap.has(hitKey) || !!computePresetCavity(hit.col, hit.row);
         if (inCavity) return;
         const screenX = panRef.current.x + hit.col * brickWidth + brickScreenOffset(hit.row, brickWidth);
         const screenY = panRef.current.y + hit.row * brickHeight;
         setSelectedBrick({ col: hit.col, row: hit.row, screenX, screenY });
         setHovered(null);
-      }, [brickAtScreen, allCavities, brickWidth]);
+      }, [brickAtScreen, userCavityMap, brickWidth]);
 
       useEffect(() => {
         const el = containerRef.current;
@@ -823,7 +1062,8 @@
               const c = startCol + dc;
               const r = startRow + dr;
               if (c < 0 || c >= wallColumns || r < 0 || r >= wallRows) continue;
-              if (occupied.has(`${c}_${r}`)) continue;
+              if (userCavityMap.has(`${c}_${r}`)) continue;
+              if (computePresetCavity(c, r)) continue;
               const screenX =
                 panRef.current.x + c * brickWidth + brickScreenOffset(r, brickWidth);
               const screenY = panRef.current.y + r * brickHeight;
@@ -833,7 +1073,7 @@
             }
           }
         }
-      }, [viewport.w, viewport.h, brickWidth, brickHeight, wallColumns, wallRows, occupied, selectedBrick, shatter]);
+      }, [viewport.w, viewport.h, brickWidth, brickHeight, wallColumns, wallRows, userCavityMap, selectedBrick, shatter]);
 
       const handleBreakBrick = useCallback((odds, name, linkedin, company) => {
         if (!selectedBrick) return;
@@ -884,6 +1124,26 @@
             position: "absolute", inset: 0,
             background: `radial-gradient(ellipse at 50% 50%, ${mortarColor} 0%, ${wallBackgroundColor} 90%)`,
             pointerEvents: "none",
+          }} />
+
+          {/* Top fade — #1E1E1E at the very top, transparent toward middle */}
+          <div style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0,
+            height: "32%",
+            background: "linear-gradient(to bottom, rgba(30,30,30,1) 0%, rgba(30,30,30,0.85) 25%, rgba(30,30,30,0.55) 55%, rgba(30,30,30,0) 100%)",
+            pointerEvents: "none",
+            zIndex: 25,
+          }} />
+
+          {/* Bottom fade — #1E1E1E at the very bottom, transparent toward middle */}
+          <div style={{
+            position: "absolute",
+            bottom: 0, left: 0, right: 0,
+            height: "32%",
+            background: "linear-gradient(to top, rgba(30,30,30,1) 0%, rgba(30,30,30,0.85) 25%, rgba(30,30,30,0.55) 55%, rgba(30,30,30,0) 100%)",
+            pointerEvents: "none",
+            zIndex: 25,
           }} />
 
           <motion.div
@@ -945,16 +1205,6 @@
               whiteSpace: "nowrap",
             }}>
               Wall of Impossible Odds.
-            </span>
-            <span style={{
-              fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
-              fontSize: 22.8,
-              fontWeight: 400,
-              color: "#ffffff",
-              letterSpacing: -0.68,
-              whiteSpace: "nowrap",
-            }}>
-              Explore the stories of Titans who broke to build.
             </span>
           </header>
 
