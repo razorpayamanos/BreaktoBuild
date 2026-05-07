@@ -1,51 +1,66 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>The Founder's Wall</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" />
-<style>
-  /* TASA Orbiter Display — drop a .woff2 file next to index.html
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>The Founder's Wall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" />
+  <style>
+    /* TASA Orbiter Display — drop a .woff2 file next to index.html
      (preferred: TASAOrbiterDisplay-Regular.woff2). Otherwise falls back
      to a system-installed copy or to Inter. */
-  @font-face {
-    font-family: "TASA Orbiter";
-    src: local("TASA Orbiter Display"),
-         local("TASAOrbiterDisplay-Regular"),
-         local("TASA Orbiter"),
-         local("TASAOrbiter-Regular"),
-         url("./TASAOrbiterDisplay-Regular.woff2") format("woff2"),
-         url("./TASAOrbiter-Regular.woff2") format("woff2"),
-         url("./fonts/TASAOrbiterDisplay-Regular.woff2") format("woff2"),
-         url("./fonts/TASAOrbiter-Regular.woff2") format("woff2");
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-  }
-  html, body, #root {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    background: #020202;
-    overflow: hidden;
-    font-family: "TASA Orbiter", "Inter", system-ui, sans-serif;
-    color: #e8d4ba;
-  }
-  /* Babel takes a moment to transpile; this fades in once React mounts. */
-  #boot {
-    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    color: #6a4a2e; font-family: "TASA Orbiter", "Inter", system-ui, sans-serif;
-    letter-spacing: 1.4px; font-size: 12px;
-    pointer-events: none; transition: opacity 0.3s ease;
-  }
-  #root:not(:empty) ~ #boot { opacity: 0; }
-</style>
+    @font-face {
+      font-family: "TASA Orbiter";
+      src: local("TASA Orbiter Display"),
+        local("TASAOrbiterDisplay-Regular"),
+        local("TASA Orbiter"),
+        local("TASAOrbiter-Regular"),
+        url("./TASAOrbiterDisplay-Regular.woff2") format("woff2"),
+        url("./TASAOrbiter-Regular.woff2") format("woff2"),
+        url("./fonts/TASAOrbiterDisplay-Regular.woff2") format("woff2"),
+        url("./fonts/TASAOrbiter-Regular.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    html,
+    body,
+    #root {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #020202;
+      overflow: hidden;
+      font-family: "TASA Orbiter", "Inter", system-ui, sans-serif;
+      color: #e8d4ba;
+    }
+
+    /* Babel takes a moment to transpile; this fades in once React mounts. */
+    #boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6a4a2e;
+      font-family: "TASA Orbiter", "Inter", system-ui, sans-serif;
+      letter-spacing: 1.4px;
+      font-size: 12px;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    #root:not(:empty)~#boot {
+      opacity: 0;
+    }
+  </style>
 </head>
+
 <body>
   <div id="root"></div>
   <div id="boot">BUILDING THE WALL…</div>
@@ -75,7 +90,7 @@
     const { motion, AnimatePresence, useReducedMotion } = FM;
 
     // Framer-only APIs — no-op in the browser preview.
-    const addPropertyControls = () => {};
+    const addPropertyControls = () => { };
     const ControlType = {
       Image: "image", Number: "number", Color: "color", Boolean: "boolean",
     };
@@ -324,14 +339,14 @@
     // Visual 6-neighbor offsets — parity-aware due to brick row offset.
     function cavityForEachVisualNbr(c, r, fn) {
       const isOdd = (r & 1) === 1;
-      const xL = isOdd ? c     : c - 1;
+      const xL = isOdd ? c : c - 1;
       const xR = isOdd ? c + 1 : c;
-      if (fn(c - 1, r))     return true;
-      if (fn(c + 1, r))     return true;
-      if (fn(xL, r - 1))    return true;
-      if (fn(xR, r - 1))    return true;
-      if (fn(xL, r + 1))    return true;
-      if (fn(xR, r + 1))    return true;
+      if (fn(c - 1, r)) return true;
+      if (fn(c + 1, r)) return true;
+      if (fn(xL, r - 1)) return true;
+      if (fn(xR, r - 1)) return true;
+      if (fn(xL, r + 1)) return true;
+      if (fn(xR, r + 1)) return true;
       return false;
     }
     function isColor0Cavity(c, r) {
@@ -362,8 +377,8 @@
       const color = cavityColor(c, r);
       const isCavity =
         color === 0 ? isColor0Cavity(c, r) :
-        color === 1 ? isColor1Cavity(c, r) :
-                      isColor2Cavity(c, r);
+          color === 1 ? isColor1Cavity(c, r) :
+            isColor2Cavity(c, r);
       if (!isCavity) return null;
       const h = cavityHash(c, r);
       const f = FOUNDER_POOL[h % FOUNDER_POOL.length];
@@ -422,15 +437,16 @@
           {hovered && (
             <div style={{
               position: "absolute", inset: 0,
-              display: "flex", alignItems: "flex-end", justifyContent: "flex-end",
+              display: "flex", alignItems: "flex-start", justifyContent: "flex-end",
               paddingRight: brickWidth * 0.05,
-              paddingBottom: brickHeight * 0.12,
+              // ↓ HOVER TEXT VERTICAL POSITION — increase to move further down
+              paddingTop: brickHeight * 0.18,
+              // ↑ HOVER TEXT VERTICAL POSITION
               fontFamily: '"TASA Orbiter", "Inter", system-ui, sans-serif',
               fontWeight: 400,
               fontSize: brickHeight * 0.2,
               letterSpacing: -0.6,
-              color: "#c9c9c9",
-              mixBlendMode: "color-burn",
+              color: "#ffffff",
               whiteSpace: "nowrap",
               pointerEvents: "none",
               gap: 4,
@@ -508,10 +524,10 @@
           }}>{label}</span>
           {multiline
             ? <textarea value={value} maxLength={maxLength} placeholder={placeholder}
-                onChange={(e) => onChange(e.target.value)}
-                rows={2} style={{ ...baseStyle, resize: "none" }} />
+              onChange={(e) => onChange(e.target.value)}
+              rows={2} style={{ ...baseStyle, resize: "none" }} />
             : <input type="text" value={value} placeholder={placeholder}
-                onChange={(e) => onChange(e.target.value)} style={baseStyle} />}
+              onChange={(e) => onChange(e.target.value)} style={baseStyle} />}
         </label>
       );
     }
@@ -646,7 +662,9 @@
             </div>
           </motion.div>
 
-          {/* Focal brick — animates from grid position to center-top */}
+          {/* Focal brick — animates from grid position to center-top.
+              Live odds text is overlaid on the brick (Figma 1311:286 styling):
+              Inter Tight SemiBold, 40% white, embossed via two-layer text-shadow. */}
           <motion.div
             data-modal="focal"
             initial={{ left: selected.screenX, top: selected.screenY, width: brickWidth, height: brickHeight }}
@@ -661,8 +679,57 @@
               boxShadow: "inset 0 -6px 12px rgba(0,0,0,0.45), inset 0 6px 8px rgba(255,255,255,0.05), 0 50px 120px rgba(0,0,0,0.85)",
               zIndex: 60,
               boxSizing: "border-box",
+              overflow: "hidden",
             }}
-          />
+          >
+            {/* === Odds (excuse) text — embossed on the focal brick.
+                 Auto-shrinks with length, wraps to 2 lines, clipped at brick edge. */}
+            {odds && (() => {
+              // First number = max font cap (relative to brick height). At 0.20,
+              // two lines (incl. descenders like g/y) sit comfortably above the
+              // BREAK TO BUILD stamp without any vertical clipping. Bump it up
+              // if you move the text higher or hide the stamp.
+              const oddsFontSize = Math.min(
+                focalH * 0.20,
+                focalW * 2.4 / Math.max(odds.length, 6)
+              );
+              return (
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    // ↓ ODDS TEXT POSITION — change these to reposition.
+                    //   `right` controls the cut-off point: 0% = clips at the
+                    //   brick's right edge; bump up (e.g. "5%") to clip earlier.
+                    top: "15%",
+                    left: "5%",
+                    right: "10%",
+                    // ↑ ODDS TEXT POSITION
+                    textAlign: "left",
+                    fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
+                    fontWeight: 600,
+                    // ↓ ODDS TEXT SIZE — first number = max font cap (relative to brick height),
+                    //   second number = auto-shrink factor for long odds. Lower both → smaller text.
+                    fontSize: oddsFontSize,
+                    // ↑ ODDS TEXT SIZE
+                    lineHeight: 0.9,
+                    letterSpacing: "-0.06em",
+                    color: "rgba(255, 255, 255, 0.40)",
+                    textShadow:
+                      "0 -1px 0 rgba(255,255,255,0.28), 0 1px 1px rgba(0,0,0,0.55), 0 2px 2px rgba(0,0,0,0.35)",
+                    // Allow natural wrapping. No height clipping — font cap is
+                    // already tuned so 2 lines (with descenders) clear the stamp.
+                    whiteSpace: "normal",
+                    overflowWrap: "break-word",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {odds}
+                </div>
+              );
+            })()}
+
+          </motion.div>
 
           {/* Bottom form panel — three fields up top, odds + submit below */}
           <motion.div
@@ -728,7 +795,18 @@
                   value={odds}
                   maxLength={80}
                   placeholder="Excuse broken"
-                  onChange={(e) => setOdds(e.target.value)}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    // ↓ WORD LIMIT — change "10" to allow more/fewer words
+                    const MAX_WORDS = 10;
+                    // ↑ WORD LIMIT
+                    const words = text.split(/\s+/).filter(Boolean);
+                    if (words.length > MAX_WORDS) {
+                      setOdds(words.slice(0, MAX_WORDS).join(" "));
+                    } else {
+                      setOdds(text);
+                    }
+                  }}
                   style={{
                     width: "100%",
                     background: "transparent",
@@ -783,7 +861,7 @@
         const v = videoRef.current;
         if (v) {
           const p = v.play();
-          if (p && typeof p.catch === "function") p.catch(() => {});
+          if (p && typeof p.catch === "function") p.catch(() => { });
         }
       }, []);
       return (
@@ -954,7 +1032,7 @@
           panX: panRef.current.x, panY: panRef.current.y,
           moved: false, pointerId: e.pointerId,
         };
-        try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch { }
       }, [selectedBrick]);
 
       const onPointerMove = useCallback((e) => {
@@ -983,7 +1061,7 @@
         const d = dragRef.current;
         if (!d) return;
         dragRef.current = null;
-        try { e.currentTarget.releasePointerCapture(d.pointerId); } catch {}
+        try { e.currentTarget.releasePointerCapture(d.pointerId); } catch { }
         if (d.moved) { setPan({ ...panRef.current }); return; }
         const hit = brickAtScreen(e.clientX, e.clientY);
         if (!hit) return;
@@ -1296,4 +1374,5 @@
     );
   </script>
 </body>
+
 </html>
