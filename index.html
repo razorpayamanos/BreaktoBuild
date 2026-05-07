@@ -104,11 +104,13 @@
 
     const CAVITY_W_BRICKS = 1;
     const CAVITY_H_BRICKS = 1;
-    // Source brick image is 990x314 (~3.15:1). Default brick size preserves
-    // that ratio so the brick renders un-squished. Sized so ~4 bricks span
-    // a 1440-wide viewport — matches the zoom level in the design ref.
+    // Source brick image is 1539x459 (exactly 57:17, ~3.353:1). Default brick
+    // size preserves that ratio so the brick renders un-squished under
+    // backgroundSize: 100% 100%. Width sized so ~4 bricks span a 1440-wide
+    // viewport — matches the zoom level in the design ref. Height derived
+    // from the source ratio so swapping the image never squishes the brick.
     const DEFAULT_BRICK_W = 360;
-    const DEFAULT_BRICK_H = 114;
+    const DEFAULT_BRICK_H = (DEFAULT_BRICK_W * 459) / 1539;
 
     // Pool of founders/companies cycled through generated cavities.
     const FOUNDER_POOL = [
@@ -372,23 +374,6 @@
       };
     }
 
-    const SHARD_CLIPS: string[] = [
-      "polygon(0% 0%, 38% 0%, 52% 28%, 28% 48%, 0% 36%)",
-      "polygon(38% 0%, 72% 0%, 66% 30%, 52% 28%)",
-      "polygon(72% 0%, 100% 0%, 100% 32%, 82% 36%, 66% 30%)",
-      "polygon(0% 36%, 28% 48%, 24% 72%, 0% 66%)",
-      "polygon(28% 48%, 52% 28%, 66% 30%, 60% 52%, 44% 66%, 24% 72%)",
-      "polygon(82% 36%, 100% 32%, 100% 62%, 76% 60%, 66% 46%)",
-      "polygon(76% 60%, 100% 62%, 100% 82%, 80% 76%)",
-      "polygon(0% 66%, 24% 72%, 30% 92%, 8% 100%, 0% 100%)",
-      "polygon(24% 72%, 44% 66%, 52% 90%, 30% 92%)",
-      "polygon(44% 66%, 60% 52%, 76% 60%, 70% 80%, 52% 90%)",
-      "polygon(70% 80%, 80% 76%, 100% 82%, 100% 100%, 76% 100%)",
-      "polygon(52% 90%, 70% 80%, 76% 100%, 52% 100%)",
-      "polygon(30% 92%, 52% 90%, 52% 100%, 30% 100%, 8% 100%)",
-      "polygon(60% 52%, 76% 60%, 66% 46%)",
-    ];
-
     function clampN(v: number, lo: number, hi: number) {
       if (lo > hi) return lo;
       return Math.max(lo, Math.min(hi, v));
@@ -463,8 +448,9 @@
       const y = cavity.row * brickHeight;
       const w = CAVITY_W_BRICKS * brickWidth;
       const h = CAVITY_H_BRICKS * brickHeight;
-      // Figma 834:166 — TASA Orbiter Display 23.728px / 1.2 / -0.9491px @ 360×114 brick.
-      // Scale relative to brickHeight so the spec holds at any zoom.
+      // Figma 834:166 — TASA Orbiter Display, font size = 0.208 × brickHeight,
+      // line-height 1.2, letter-spacing -0.04 × fontSize. Ratio-based so the
+      // spec scales with brick height (and thus with brick image aspect).
       const fontSize = brickHeight * 0.208;
       const letterSpacing = fontSize * -0.04;
       return (
@@ -788,62 +774,37 @@
       );
     }
 
-    function ShatterEffect({ x, y, width, height, brickImage }) {
-      const shards = useMemo(() => SHARD_CLIPS.map((clip, i) => {
-        const angle = (i / SHARD_CLIPS.length) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
-        const speed = 220 + Math.random() * 320;
-        const vx = Math.cos(angle) * speed;
-        const vy = Math.sin(angle) * speed - 120;
-        const rot = (Math.random() - 0.5) * 720;
-        const delay = (i % 5) * 0.018;
-        return { clip, vx, vy, rot, delay };
-      }), []);
-      const dust = useMemo(() => Array.from({ length: 25 }).map(() => {
-        const angle = Math.random() * Math.PI * 2;
-        const speed = 80 + Math.random() * 220;
-        const size = 4 + Math.random() * 11;
-        const colors = ["#5a3a22", "#7a5a3a", "#3a2818", "#8a6a4a"];
-        return {
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 40,
-          size, delay: Math.random() * 0.12,
-          color: colors[Math.floor(Math.random() * colors.length)],
-        };
-      }), []);
+    // Plays the transparent brick-blast webm aligned to the focal brick rect.
+    // Calls onEnded when the video finishes (modal-close + cavity commit happen there).
+    function BrickBreakVideo({ x, y, width, height, src, onEnded }) {
+      const videoRef = useRef(null);
+      useEffect(() => {
+        // Some browsers ignore autoplay until a manual play() — kick it off.
+        const v = videoRef.current;
+        if (v) {
+          const p = v.play();
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        }
+      }, []);
       return (
-        <div style={{
-          position: "absolute", left: x - width / 2, top: y - height / 2,
-          width, height, pointerEvents: "none", zIndex: 75,
-        }}>
-          {shards.map((s, i) => (
-            <motion.div key={`s${i}`}
-              initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
-              animate={{ x: s.vx, y: s.vy + 700, rotate: s.rot, opacity: 0 }}
-              transition={{ duration: 0.85, delay: s.delay, ease: [0.18, 0.55, 0.4, 1] }}
-              style={{
-                position: "absolute", inset: 0,
-                backgroundImage: `url(${brickImage})`,
-                backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
-                clipPath: s.clip, WebkitClipPath: s.clip,
-                filter: "drop-shadow(0 4px 5px rgba(0,0,0,0.55))",
-              }}
-            />
-          ))}
-          {dust.map((d, i) => (
-            <motion.div key={`d${i}`}
-              initial={{ x: 0, y: 0, opacity: 0.85, scale: 1 }}
-              animate={{ x: d.vx, y: d.vy + 220, opacity: 0, scale: 1.7 }}
-              transition={{ duration: 1.0, delay: d.delay, ease: "easeOut" }}
-              style={{
-                position: "absolute",
-                left: width / 2 - d.size / 2, top: height / 2 - d.size / 2,
-                width: d.size, height: d.size,
-                background: d.color, borderRadius: "50%",
-                filter: "blur(1px)",
-              }}
-            />
-          ))}
-        </div>
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          onEnded={onEnded}
+          style={{
+            position: "absolute",
+            left: x, top: y,
+            width, height,
+            zIndex: 75,
+            pointerEvents: "none",
+            objectFit: "fill",
+          }}
+        >
+          <source src={src} type="video/webm" />
+        </video>
       );
     }
 
@@ -1086,23 +1047,43 @@
           isUserBrick: true,
         };
         if (enableShatter && !prefersReducedMotion) {
-          const focalCenterX = viewport.w < 768 ? viewport.w / 2 : viewport.w / 2 - 200;
-          const focalCenterY = viewport.w < 768 ? viewport.h * 0.32 : viewport.h / 2;
-          setShatter({ x: focalCenterX, y: focalCenterY });
+          // Center the brick-blast video on the focal brick. The video is 16:9
+          // (not the brick's 3.15:1), so we size the playback rect at 16:9 —
+          // width matches the focal brick, height extends above/below to keep
+          // the video's true aspect. Anything else squashes the y-axis.
+          const isMobile = viewport.w < 768;
+          const focalW = isMobile
+            ? Math.min(viewport.w - 64, brickWidth * 2.4)
+            : Math.min(viewport.w * 0.7, 1100);
+          const focalCenterX = viewport.w / 2;
+          const focalCenterY = isMobile ? viewport.h * 0.22 : viewport.h * 0.32;
+          const videoW = focalW * 1.25;
+          const videoH = videoW * 9 / 16;
+          setShatter({
+            x: focalCenterX - videoW / 2,
+            y: focalCenterY - videoH / 2,
+            width: videoW,
+            height: videoH,
+            cavity: newCavity,
+          });
           setShaking(true);
           window.setTimeout(() => setShaking(false), 280);
+          // Safety fallback if `onended` never fires (autoplay blocked, decode error, etc).
           window.setTimeout(() => {
-            setUserCavities((prev) => [...prev, newCavity]);
-            setShatter(null);
-            setSelectedBrick(null);
-          }, 1000);
+            setShatter((s) => {
+              if (!s) return null;
+              setUserCavities((prev) => [...prev, s.cavity]);
+              setSelectedBrick(null);
+              return null;
+            });
+          }, 4000);
         } else {
           window.setTimeout(() => {
             setUserCavities((prev) => [...prev, newCavity]);
             setSelectedBrick(null);
           }, 400);
         }
-      }, [selectedBrick, enableShatter, prefersReducedMotion, viewport.w, viewport.h]);
+      }, [selectedBrick, enableShatter, prefersReducedMotion, viewport.w, viewport.h, brickWidth, brickHeight]);
 
       const cursor = selectedBrick ? "default" : (dragRef.current?.active ? "grabbing" : "grab");
 
@@ -1286,11 +1267,18 @@
 
           <AnimatePresence>
             {shatter && (
-              <ShatterEffect key="shatter"
+              <BrickBreakVideo key="brick-break-video"
                 x={shatter.x} y={shatter.y}
-                width={brickWidth * (viewport.w < 768 ? 2 : 2.6)}
-                height={brickHeight * (viewport.w < 768 ? 2 : 2.6)}
-                brickImage={brickImageSrc}
+                width={shatter.width} height={shatter.height}
+                src="./BrickBlast2.webm"
+                onEnded={() => {
+                  setShatter((s) => {
+                    if (!s) return null;
+                    setUserCavities((prev) => [...prev, s.cavity]);
+                    setSelectedBrick(null);
+                    return null;
+                  });
+                }}
               />
             )}
           </AnimatePresence>
