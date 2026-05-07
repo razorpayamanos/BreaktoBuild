@@ -407,7 +407,13 @@
       const dy = (u(19) - 0.5) * 1.2;
       const rotations = [0, 0.12, -0.12, 0.2];
       const rotation = rotations[h % 4];
-      return { hueShift, brightness, dx, dy, rotation };
+      // Z-axis depth — most bricks sit flat on the wall plane, ~18% pop
+      // forward (drop a soft shadow), ~8% sit slightly recessed (dimmed).
+      // Independent hash so depth doesn't correlate with dx/dy/rotation.
+      const depthHash = hash2D(col + 12345, row + 67890);
+      const depthRaw = (depthHash & 0xffff) / 0xffff;
+      const depth = depthRaw < 0.18 ? 1 : depthRaw > 0.92 ? -1 : 0;
+      return { hueShift, brightness, dx, dy, rotation, depth };
     }
     function isTouchEnv(): boolean {
       if (typeof window === "undefined") return false;
@@ -421,6 +427,22 @@
       const v = brickVariation(col, row);
       const x = col * brickWidth + brickScreenOffset(row, brickWidth);
       const y = row * brickHeight;
+
+      // Depth-aware styling. Closer bricks (depth=1) cast a soft shadow at
+      // bottom-right (light from top-left convention) and sit above neighbors
+      // so the shadow lands on whatever is behind. Recessed bricks (depth=-1)
+      // dim slightly and sit below neighbors.
+      const baseShadow =
+        `inset 0 -2px 3px rgba(0,0,0,0.45),` +
+        ` inset 0 2px 2px rgba(255,255,255,0.04),` +
+        ` inset 1px 0 0 ${mortarColor},` +
+        ` inset -1px 0 0 ${mortarColor}`;
+      const dropShadow = v.depth === 1
+        ? `, ${brickHeight * 0.10}px ${brickHeight * 0.10}px ${brickHeight * 0.22}px rgba(0,0,0,0.55)`
+        : "";
+      const brightnessAdjust = v.depth === -1 ? -0.10 : 0;
+      const zIndex = v.depth === 1 ? 2 : v.depth === -1 ? 0 : 1;
+
       return (
         <div
           style={{
@@ -429,8 +451,9 @@
             backgroundImage: `url(${brickImage})`,
             backgroundSize: "100% 100%",
             backgroundRepeat: "no-repeat",
-            filter: `hue-rotate(${v.hueShift}deg) brightness(${v.brightness})`,
-            boxShadow: `inset 0 -2px 3px rgba(0,0,0,0.45), inset 0 2px 2px rgba(255,255,255,0.04), inset 1px 0 0 ${mortarColor}, inset -1px 0 0 ${mortarColor}`,
+            filter: `hue-rotate(${v.hueShift}deg) brightness(${v.brightness + brightnessAdjust})`,
+            boxShadow: baseShadow + dropShadow,
+            zIndex,
             pointerEvents: "none",
           }}
         >
