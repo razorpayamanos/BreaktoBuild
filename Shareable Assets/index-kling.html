@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Break to Build — Claim Your Mark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Special+Gothic+Condensed+One&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet" />
+
+<style>
+  /* ============================================================
+     DESIGN TOKENS (mirrors Figma — tweak in :root)
+     ============================================================ */
+  :root {
+    --bg-page: #0a0a0a;
+    --bg-scrim: rgba(0,0,0,0.78);
+    --bg-card: #ffffff;
+    --accent: #0039ff;
+    --dark: #171717;
+    --text-on-dark: #ffffff;
+    --text-on-light: #000000;
+    --muted: #c4c4c4;
+    --line: #171717;
+    --error: #ff3b3b;
+
+    --font-display: 'Anton', 'GC VANK', 'Bebas Neue', sans-serif;
+    --font-body: 'Inter', 'TASA Orbiter Display', system-ui, sans-serif;
+    --font-mono-display: 'Unbounded', 'Inter', sans-serif;
+
+    --radius: 0px;
+    --modal-max-w: 1100px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--bg-page);
+    color: #fff;
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+  body.modal-open { overflow: hidden; }
+
+  button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+  input { font-family: inherit; }
+  a { color: inherit; }
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+  /* ============================================================
+     LANDING — matches Figma node 2198:169 (frame 1450×758).
+     Background is the Figma render; transparent buttons sit on top
+     of the design's CTAs so clicks open the modal flow.
+     ============================================================ */
+  .landing {
+    min-height: 100vh;
+    background: #030405;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .landing-frame {
+    position: relative;
+    /* fit the 1450:758 frame inside the viewport, preserving aspect */
+    width: min(100vw, calc(100vh * 1450 / 758));
+    aspect-ratio: 1450 / 758;
+    user-select: none;
+  }
+  .landing-bg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+  .landing-cta {
+    position: absolute;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    transition: outline-color .15s ease, transform .15s ease, box-shadow .15s ease;
+  }
+  .landing-cta:hover {
+    outline-color: rgba(0,57,255,0.85);
+    box-shadow: 0 0 0 6px rgba(0,57,255,0.18);
+  }
+  .landing-cta:focus-visible { outline-color: var(--accent); }
+  .landing-cta:active { transform: scale(0.98); }
+  /* Coords below are Figma px ÷ frame size — keep them as % so the
+     buttons stay locked to the bg image as the frame scales. */
+  .landing-cta--claim {                            /* 71.44, 179.11, 163.652×42.741 */
+    left:  calc(71.44 / 1450 * 100%);
+    top:   calc(179.11 / 758 * 100%);
+    width: calc(163.652 / 1450 * 100%);
+    height: calc(42.741 / 758 * 100%);
+  }
+  .landing-cta--test {                             /* 758.71, 620.85, 89.625×41.256 */
+    left:  calc(758.71 / 1450 * 100%);
+    top:   calc(620.85 / 758 * 100%);
+    width: calc(89.625 / 1450 * 100%);
+    height: calc(41.256 / 758 * 100%);
+  }
+
+  /* ============================================================
+     MODAL
+     ============================================================ */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: var(--bg-scrim);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .modal-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .modal {
+    width: 100%;
+    max-width: var(--modal-max-w);
+    max-height: calc(100vh - 32px);
+    background: var(--bg-card);
+    color: var(--text-on-light);
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    overflow: hidden;
+    transform: translateY(8px) scale(.99);
+    transition: transform .25s ease;
+  }
+  .modal-backdrop.is-open .modal { transform: translateY(0) scale(1); }
+  .modal-close {
+    position: absolute;
+    top: 12px; right: 12px;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    background: rgba(0,0,0,0.45);
+    border-radius: 999px;
+    z-index: 5;
+    font-size: 22px;
+    line-height: 1;
+  }
+  .modal-close:hover { background: rgba(0,0,0,0.7); }
+
+  .modal-content {
+    padding: 56px 48px 40px;
+    display: flex;
+    flex-direction: column;
+    min-height: 540px;
+    overflow-y: auto;
+  }
+
+  .heading-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(32px, 4.2vw, 48px);
+    line-height: 1.02;
+    letter-spacing: 0.005em;
+    text-transform: uppercase;
+    color: var(--text-on-light);
+    margin: 0 0 32px;
+  }
+
+  /* Stages */
+  .stage { display: none; flex-direction: column; flex: 1; }
+  .stage.is-active { display: flex; }
+
+  /* Persona picker */
+  .persona-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 8px 0 28px;
+    flex: 1;
+    align-content: center;
+  }
+  .persona-thumb {
+    position: relative;
+    aspect-ratio: 171/256;
+    background: #f3f3f3;
+    overflow: hidden;
+    padding: 0;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+  }
+  .persona-thumb img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    object-position: bottom center;
+    transition: transform .25s ease;
+    pointer-events: none;
+  }
+  .persona-thumb:hover img { transform: scale(1.03); }
+  .persona-thumb.is-selected {
+    background: #eef0ff;
+    outline-color: var(--accent);
+  }
+  .persona-thumb .check {
+    position: absolute;
+    top: 8px; right: 8px;
+    width: 22px; height: 22px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 999px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .persona-thumb.is-selected .check { display: flex; }
+  .persona-label {
+    position: absolute;
+    bottom: 6px; left: 6px;
+    font-family: var(--font-body);
+    font-size: 11px;
+    color: #000;
+    background: rgba(255,255,255,0.85);
+    padding: 2px 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Form */
+  .form-fields {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+  .field {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    padding: 10px 0 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .field-label {
+    font-family: var(--font-body);
+    font-size: clamp(20px, 2.2vw, 26px);
+    color: #000;
+    white-space: nowrap;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  .field-input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: clamp(18px, 2vw, 22px);
+    color: #000;
+    padding: 4px 0;
+    font-family: var(--font-body);
+  }
+  .field-input::placeholder { color: #aaa; }
+  .field.has-error { border-bottom-color: var(--error); }
+  .field-error {
+    font-size: 12px;
+    color: var(--error);
+    min-height: 16px;
+    padding: 4px 0 0;
+    font-family: var(--font-body);
+  }
+  .field-row { display: flex; flex-direction: column; gap: 0; }
+
+  /* Buttons */
+  .btn-primary {
+    align-self: flex-start;
+    background: var(--dark);
+    color: #fff;
+    padding: 14px 22px;
+    font-family: var(--font-body);
+    font-size: 18px;
+    letter-spacing: -0.02em;
+    transition: transform .15s ease, background .15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-primary:hover { background: #000; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+  .btn-primary.is-wide { padding: 14px 36px; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--dark);
+    border: 1px solid var(--dark);
+    padding: 13px 20px;
+    font-family: var(--font-body);
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    transition: background .15s ease, color .15s ease;
+  }
+  .btn-secondary:hover { background: var(--dark); color: #fff; }
+
+  /* Loading stage */
+  .stage-loading {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 16px;
+  }
+  .loading-spark {
+    font-family: var(--font-display);
+    font-size: clamp(36px, 6vw, 64px);
+    color: var(--text-on-light);
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .loading-bar {
+    width: min(360px, 80%);
+    height: 4px;
+    background: rgba(0,0,0,0.08);
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .loading-bar::after {
+    content: '';
+    display: block;
+    height: 100%;
+    width: 40%;
+    background: var(--accent);
+    animation: slide 1.3s infinite ease-in-out;
+  }
+  @keyframes slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+  .loading-stage-detail {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: #666;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Result stage */
+  .stage-result { align-items: stretch; }
+  .result-media-wrap {
+    flex: 1;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    max-height: 60vh;
+  }
+  .result-media-wrap img,
+  .result-media-wrap video {
+    max-width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+  }
+  .result-actions {
+    display: flex;
+    gap: 12px;
+    padding-top: 20px;
+    flex-wrap: wrap;
+  }
+  .result-meta {
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: #666;
+    padding-top: 12px;
+  }
+
+  /* ============================================================
+     PREVIEW PANE (right side of modal — live preview of brick)
+     ============================================================ */
+  .preview-pane {
+    background: var(--accent);
+    position: relative;
+    overflow: hidden;
+    color: var(--muted);
+    display: flex;
+  }
+  .preview-inner {
+    background: #000;
+    margin: -32px 0;
+    padding: 60px 24px 32px;
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .preview-prefix {
+    font-family: var(--font-mono-display);
+    font-weight: 400;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--muted);
+  }
+  .preview-name {
+    font-family: var(--font-mono-display);
+    font-weight: 900;
+    font-size: 30px;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    margin: 6px 0 14px;
+    color: var(--muted);
+    word-break: break-word;
+    max-width: 100%;
+  }
+  .preview-suffix {
+    font-family: var(--font-mono-display);
+    font-weight: 400;
+    font-size: 9px;
+    line-height: 1.35;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 0 0 16px;
+    color: var(--muted);
+    max-width: 22ch;
+  }
+  .preview-base {
+    width: 80%;
+    max-width: 240px;
+    aspect-ratio: 1;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%),
+      #0d0d0d;
+    border: 1px solid rgba(255,255,255,0.05);
+    margin: auto 0;
+    object-fit: contain;
+    position: relative;
+  }
+  .preview-base.is-empty::after {
+    content: 'BASE IMAGE';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-body);
+    font-size: 11px;
+    color: #444;
+    letter-spacing: 0.1em;
+  }
+  .preview-label {
+    position: absolute;
+    bottom: 0; left: 0;
+    background: var(--accent);
+    color: #fff;
+    padding: 5px 10px 4px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width: 880px) {
+    .modal { grid-template-columns: 1fr; max-height: 100vh; height: 100vh; }
+    .modal-content { padding: 56px 24px 24px; min-height: 0; }
+    .preview-pane { display: none; }
+    .persona-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .heading-display { font-size: 30px; margin-bottom: 20px; }
+    .field { padding: 8px 0 4px; gap: 12px; }
+    .field-label { font-size: 18px; }
+    .field-input { font-size: 16px; }
+  }
+  @media (max-width: 380px) {
+    .modal-content { padding: 56px 18px 20px; }
+  }
+
+  /* Debug overlay (?debug=1) */
+  body.is-debug .debug-only { display: block; }
+  .debug-only { display: none; }
+  .debug-banner {
+    position: fixed;
+    bottom: 8px; left: 8px;
+    background: rgba(255, 0, 0, 0.8);
+    color: #fff;
+    padding: 6px 10px;
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
+    z-index: 9999;
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     LANDING — Figma node 2198:169.
+     Background is the Figma export; transparent buttons overlay
+     the design's CTAs so they actually open the modal.
+     ============================================================ -->
+<main class="landing">
+  <div class="landing-frame">
+    <img class="landing-bg" src="landing-bg.png" alt="Founder's Brick — Break to Build × Razorpay" />
+    <button id="open-cta"      class="landing-cta landing-cta--claim" type="button" aria-label="Claim your mark"></button>
+    <button id="open-cta-test" class="landing-cta landing-cta--test"  type="button" aria-label="Test it"></button>
+  </div>
+</main>
+
+<!-- ============================================================
+     MODAL ROOT — persona picker / form / loading / result stages
+     ============================================================ -->
+<div id="modal-root" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-heading" hidden>
+  <div class="modal" role="document">
+    <button type="button" class="modal-close" id="modal-close" aria-label="Close">×</button>
+
+    <section class="modal-content" id="modal-content">
+
+      <!-- Stage 1: Persona picker -->
+      <div class="stage stage-persona is-active" data-stage="persona">
+        <h2 id="modal-heading" class="heading-display">Pick your persona<br />to build your mark</h2>
+        <div class="persona-grid" id="persona-grid" role="radiogroup" aria-label="Choose your persona"></div>
+        <div>
+          <button type="button" class="btn-primary" id="persona-next" disabled>Next</button>
+        </div>
+      </div>
+
+      <!-- Stage 2: Form -->
+      <div class="stage stage-form" data-stage="form">
+        <h2 class="heading-display">You built against the odds.<br />Now let's make it official.</h2>
+        <form id="claim-form" class="form-fields" novalidate>
+          <div class="field-row">
+            <div class="field" data-field="name">
+              <label class="field-label" for="f-name">Name</label>
+              <input id="f-name" class="field-input" name="name" type="text" maxlength="30" autocomplete="name" required />
+            </div>
+            <div class="field-error" data-error-for="name"></div>
+          </div>
+          <div class="field-row">
+            <div class="field" data-field="company">
+              <label class="field-label" for="f-company">Company Name</label>
+              <input id="f-company" class="field-input" name="company" type="text" maxlength="40" autocomplete="organization" required />
+            </div>
+            <div class="field-error" data-error-for="company"></div>
+          </div>
+          <div class="field-row">
+            <div class="field" data-field="linkedin">
+              <label class="field-label" for="f-linkedin">Linkedin</label>
+              <input id="f-linkedin" class="field-input" name="linkedin" type="url" placeholder="linkedin.com/in/your-handle" autocomplete="url" required />
+            </div>
+            <div class="field-error" data-error-for="linkedin"></div>
+          </div>
+          <div class="field-row">
+            <div class="field" data-field="odds">
+              <label class="field-label" for="f-odds">Odds Beaten</label>
+              <input id="f-odds" class="field-input" name="odds" type="text" maxlength="30" placeholder="e.g. 1 IN 10,000" required />
+            </div>
+            <div class="field-error" data-error-for="odds"></div>
+          </div>
+        </form>
+        <div>
+          <button type="submit" form="claim-form" class="btn-primary is-wide" id="form-submit">Claim your mark</button>
+        </div>
+      </div>
+
+      <!-- Stage 3: Loading -->
+      <div class="stage stage-loading" data-stage="loading">
+        <p class="loading-spark" id="loading-text">Forging your brick…</p>
+        <div class="loading-bar" aria-hidden="true"></div>
+        <p class="loading-stage-detail" id="loading-detail">Compositing first frame</p>
+      </div>
+
+      <!-- Stage 4: Result -->
+      <div class="stage stage-result" data-stage="result">
+        <h2 class="heading-display" id="result-heading">Your mark is ready.</h2>
+        <div class="result-media-wrap" id="result-media-wrap"></div>
+        <div class="result-actions">
+          <button type="button" class="btn-primary" id="result-download">Download</button>
+          <button type="button" class="btn-secondary" id="result-share">Share</button>
+          <button type="button" class="btn-secondary" id="result-restart">Make another</button>
+        </div>
+        <p class="result-meta" id="result-meta"></p>
+      </div>
+
+    </section>
+
+    <!-- Preview pane (live) -->
+    <aside class="preview-pane" aria-hidden="true">
+      <div class="preview-inner">
+        <p class="preview-prefix">thank you</p>
+        <h3 class="preview-name" id="preview-name">YOUR NAME<br />HERE</h3>
+        <p class="preview-suffix" id="preview-suffix">the odds you broke to build your company</p>
+        <img class="preview-base is-empty" id="preview-base" alt="" />
+        <span class="preview-label">Preview</span>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<div class="debug-banner debug-only">DEBUG · ?debug=1</div>
+
+<script type="module">
+'use strict';
+
+// ============================================================
+// SECTION 1 — Config & constants (tweak these to iterate)
+// ============================================================
+
+/**
+ * Output target. Final shareable poster is vertical (1080×1350).
+ * Step A canvas runs at the base image's intrinsic dimensions so
+ * SLAB_CONFIG coordinates can be authored against the source art.
+ */
+const FINAL_WIDTH = 1080;
+const FINAL_HEIGHT = 1350;
+
+/**
+ * Map each persona to its base image + thumbnail. For v1, all four
+ * personas point at the same placeholder until per-persona base art
+ * is delivered. Swap by editing this object — no other code changes.
+ */
+const PLACEHOLDER_BASE_IMAGE = 'Base Images/placeholder.png';
+const PERSONA_CONFIG = {
+  male1:   { label: 'The Strategist', thumb: 'Personas/male1.png',   baseImage: PLACEHOLDER_BASE_IMAGE },
+  female1: { label: 'The Visionary',  thumb: 'Personas/female1.png', baseImage: PLACEHOLDER_BASE_IMAGE },
+  male2:   { label: 'The Builder',    thumb: 'Personas/male2.png',   baseImage: PLACEHOLDER_BASE_IMAGE },
+  female2: { label: 'The Maker',      thumb: 'Personas/female2.png', baseImage: PLACEHOLDER_BASE_IMAGE },
+};
+const PERSONA_ORDER = ['male1', 'female1', 'male2', 'female2'];
+
+/**
+ * Slab text alignment. All coordinates are in the Step-A canvas pixel
+ * space (= base image's intrinsic pixel dimensions). Tweak with
+ * ?debug=1 to see the clip polygon outlined in red.
+ *
+ * Authoring assumes a ~1080×1080 base image with the slab on the left
+ * and the figurine on the right. Adjust once real base art arrives.
+ */
+/**
+ * Slab text — values mirror Figma node 2194:170 (the carved-text
+ * reference). The engraved look comes from `compositeMode: 'overlay'`,
+ * which blends the gray text into the stone's actual texture rather
+ * than painting on top.
+ *
+ * IMPORTANT: positions are NORMALIZED (0–1) fractions of the base
+ * image's pixel dimensions. This way SLAB_CONFIG works for any base
+ * image size — no need to retune for 1024 vs 1080 vs 1500 px sources.
+ * Pixel coords are computed at draw time as `norm × canvas.width/height`.
+ *
+ * Reload with `?debug=1` to see the red dashed polygon + a cyan
+ * crosshair at the text anchor + the live bounding box, all drawn
+ * on top of the final composition.
+ */
+const SLAB_CONFIG = {
+  // Center of the text block, as a fraction of base image (x, y).
+  textAnchor:    { x: 0.385, y: 0.46 },              // figma: 38.4%, 46.4% of frame
+  // Text bounding box, as a fraction of base image (auto-fit shrinks
+  // the font until lines fit inside this box).
+  textMaxWidth:  0.18,                                // figma: 63.521 / 358 = 17.7%
+  textMaxHeight: 0.19,                                // figma: 68.019 / 366 = 18.6%
+  // Type
+  fontFamily:    "'Special Gothic Condensed One', 'Anton', sans-serif",
+  fontWeight:    400,
+  // NOTE: Figma uses #707070 with overlay blend. 50%-gray + overlay
+  // is mathematically near-zero contrast against a flat fill — the
+  // engraving only shows on textured stone. Default below is slightly
+  // darker so the text remains visible even on smoother slab
+  // textures. Push back toward #707070 if it reads as too dark.
+  fontColor:     '#3a3a3a',
+  lineHeight:    0.8,                                 // figma: leading-[0.8]
+  letterSpacing: -0.02,                               // em — figma: tracking-[-0.4331px] @ 21.654px
+  textAlign:     'left',                              // 'left' | 'center' | 'right'
+  compositeMode: 'overlay',                           // figma: mix-blend-overlay
+  // Embossment — drawn BEFORE the main overlay fill so the raised
+  // look survives the overlay-blend math. Highlight = top-left edge
+  // (light hits the raised letter), shadow = bottom-right edge
+  // (raised letter casts shadow on the stone). Offsets scale with
+  // the rendered font size, so it looks consistent across image sizes.
+  embossment: {
+    enabled: true,
+    offsetEm: 0.04,                                   // ~4% of font size
+    highlight: { color: 'rgba(255,255,255,0.55)', blend: 'screen'   },
+    shadow:    { color: 'rgba(0,0,0,0.55)',       blend: 'multiply' },
+  },
+  // Fake-perspective transform on the text block.
+  skewX:    8,                                        // deg — figma: skew-x-8
+  skewY:    0,
+  rotation: -0.91,                                    // deg — figma: rotate-[-0.91deg]
+  // Polygon clipping the text to the slab's visible front face.
+  // Each point is [xFraction, yFraction] of the base image.
+  //                top-L          top-R         bot-R         bot-L
+  clipPolygon: [[0.255, 0.30], [0.555, 0.28], [0.575, 0.82], [0.235, 0.85]],
+  // Lines wrap at this character count before auto-fit kicks in.
+  // 6 produces the figma's 4-line break for "YOU DON'T HAVE A DEGREE".
+  softWrapAt: 6,
+};
+
+/**
+ * Final 1080×1350 poster — coordinates are derived from Figma node
+ * 2103:415 (a 421×570 frame named "1080*1350"). The constants below
+ * are in Figma-space; `fx()/fy()/ff()` in Section 7 scale them to
+ * the 1080×1350 output canvas. Change values here, not in the
+ * render function.
+ */
+const POSTER_OVERLAY = {
+  // Source frame the coordinates below were authored against.
+  figW: 421,
+  figH: 570,
+  // Colors (from Figma).
+  bg: '#010201',
+  textColor: '#c4c4c4',
+  accent: '#0039ff',
+  ticker: { white: '#ffffff', y: 541.82, h: 28.086 },
+  // Top-bar items.
+  logo:   { x: 12.87,  y: 12.49, w: 63.997, h: 13.653, src: 'razorpay-logo.svg' },
+  pill:   { x: 332.35, y: 8.97,  w: 78.016, h: 20.707, label: 'BREAK TO BUILD', fontSize: 7.5 },
+  // Centered text stack.
+  centerX: 210.44,
+  eyebrow:  { y: 39.75,  fontSize: 13.48,  lineHeight: 26.43, text: 'THANK YOU' },
+  name:     { y: 70,     fontSize: 39.008, lineHeight: 38.07, weight: 900 },
+  subtitle: { y: 154.35, fontSize: 11.539, lineHeight: 15.69, maxWidth: 263, prefix: 'for BEATING THE ODDS AND BUILDING ' },
+  // Media slot (where the Kling video / first-frame image sits).
+  media:  { x: 29.26, y: 185.68, w: 358.213, h: 365.771 },
+  // Ticker copy: one "tile" gets repeated horizontally.
+  tickerTile: 'BREAK TO BUILD',
+  tickerStarPad: 56,        // gap between the word and the star, then between the star and the next word
+  tickerFontSize: 11.139,
+};
+
+/**
+ * Kling i2v config — STUBBED. Replace KLING_API_KEY when ready.
+ * Endpoint is a top-level constant so you can swap between
+ * Kuaishou's direct API and fal.ai without hunting.
+ *
+ * Reference (verify before live):
+ *   - Kuaishou Kling Image-to-Video v3.x
+ *   - POST {endpoint}/v1/videos/image2video
+ *     body: { model_name, image (base64 or URL), prompt, duration, mode, cfg_scale, aspect_ratio }
+ *     → { task_id }
+ *   - GET {endpoint}/v1/videos/image2video/{task_id}
+ *     → { task_status: 'submitted'|'processing'|'succeed'|'failed', task_result: { videos: [{ url }] } }
+ */
+const KLING_API_KEY = '';                                                // TODO: paste key when ready
+const KLING_ENDPOINT = 'https://api.klingai.com';                         // TODO: confirm or swap to fal.ai
+const KLING_MODEL = 'kling-v2';                                          // bump to latest v3.x when available
+const KLING_PROMPT = '';                                                  // TODO: KLING_PROMPT (shatter animation prompt)
+const KLING_DURATION = 5;
+const KLING_POLL_INTERVAL_MS = 5000;
+const KLING_POLL_TIMEOUT_MS  = 3 * 60 * 1000;
+
+/**
+ * Loading copy — playful, on-brand, not corny.
+ */
+const LOADING_STAGES = {
+  composing:   { headline: 'Carving the slab…',     detail: 'Step 1 of 3 · Engraving your odds' },
+  klingStub:   { headline: 'Forging your brick…',   detail: 'Step 2 of 3 · Locking the glass case' },
+  klingLive:   { headline: 'Shattering on cue…',    detail: 'Step 2 of 3 · Rendering animation' },
+  finalize:    { headline: 'Polishing the shot…',   detail: 'Step 3 of 3 · Composing final poster' },
+};
+
+const DEBUG = new URLSearchParams(location.search).has('debug');
+if (DEBUG) document.body.classList.add('is-debug');
+const dbg = (...args) => { if (DEBUG) console.log('[BTB]', ...args); };
+const dbgTime = (label, fn) => {
+  if (!DEBUG) return fn();
+  const t0 = performance.now();
+  const out = fn();
+  if (out && typeof out.then === 'function') {
+    return out.then(v => { console.log('[BTB] %s · %sms', label, (performance.now()-t0).toFixed(1)); return v; });
+  }
+  console.log('[BTB] %s · %sms', label, (performance.now()-t0).toFixed(1));
+  return out;
+};
+
+// ============================================================
+// SECTION 2 — DOM & modal management
+// ============================================================
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+const modalRoot   = $('#modal-root');
+const modalClose  = $('#modal-close');
+const openCta     = $('#open-cta');
+const openCtaTest = $('#open-cta-test');
+let lastFocused = null;
+
+function openModal() {
+  lastFocused = document.activeElement;
+  modalRoot.hidden = false;
+  // double rAF so the transition catches
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    modalRoot.classList.add('is-open');
+  }));
+  document.body.classList.add('modal-open');
+  setStage('persona');
+  // focus first interactive element in active stage
+  setTimeout(() => {
+    const focusable = getFocusableInStage($('.stage.is-active'));
+    if (focusable.length) focusable[0].focus();
+  }, 50);
+}
+
+function closeModal() {
+  modalRoot.classList.remove('is-open');
+  document.body.classList.remove('modal-open');
+  setTimeout(() => {
+    modalRoot.hidden = true;
+    if (lastFocused && lastFocused.focus) lastFocused.focus();
+  }, 220);
+}
+
+function getFocusableInStage(stage) {
+  if (!stage) return [];
+  return $$('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])', stage)
+    .filter(el => el.offsetParent !== null);
+}
+
+function setStage(name) {
+  $$('.stage').forEach(s => s.classList.toggle('is-active', s.dataset.stage === name));
+  // shift focus into the new stage
+  const stage = $(`.stage[data-stage="${name}"]`);
+  const focusable = getFocusableInStage(stage);
+  if (focusable.length) focusable[0].focus();
+}
+
+// Escape closes; tab traps within modal
+document.addEventListener('keydown', (e) => {
+  if (modalRoot.hidden) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
+  if (e.key !== 'Tab') return;
+  const focusable = getFocusableInStage(modalRoot);
+  if (focusable.length === 0) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    last.focus(); e.preventDefault();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    first.focus(); e.preventDefault();
+  }
+});
+
+openCta.addEventListener('click', openModal);
+if (openCtaTest) openCtaTest.addEventListener('click', openModal);
+modalClose.addEventListener('click', closeModal);
+modalRoot.addEventListener('click', (e) => { if (e.target === modalRoot) closeModal(); });
+
+// ============================================================
+// SECTION 3 — Persona picker
+// ============================================================
+
+const personaGrid = $('#persona-grid');
+const personaNext = $('#persona-next');
+let selectedPersona = null;
+
+function renderPersonaGrid() {
+  personaGrid.innerHTML = '';
+  PERSONA_ORDER.forEach((key, idx) => {
+    const config = PERSONA_CONFIG[key];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'persona-thumb';
+    btn.dataset.persona = key;
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-checked', 'false');
+    btn.setAttribute('aria-label', `${config.label} persona`);
+    btn.tabIndex = idx === 0 ? 0 : -1;
+    btn.innerHTML = `
+      <img src="${config.thumb}" alt="" onerror="this.style.opacity=0.2;this.alt='missing'" />
+      <span class="check" aria-hidden="true">✓</span>
+      <span class="persona-label">${config.label}</span>
+    `;
+    btn.addEventListener('click', () => selectPersona(key));
+    btn.addEventListener('keydown', handlePersonaKeydown);
+    personaGrid.appendChild(btn);
+  });
+}
+
+function handlePersonaKeydown(e) {
+  const keys = PERSONA_ORDER;
+  const current = e.currentTarget.dataset.persona;
+  const idx = keys.indexOf(current);
+  let next = null;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = keys[(idx + 1) % keys.length];
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = keys[(idx - 1 + keys.length) % keys.length];
+  else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); selectPersona(current); return; }
+  if (next) {
+    e.preventDefault();
+    selectPersona(next);
+    personaGrid.querySelector(`[data-persona="${next}"]`).focus();
+  }
+}
+
+function selectPersona(key) {
+  selectedPersona = key;
+  $$('.persona-thumb').forEach(btn => {
+    const isSel = btn.dataset.persona === key;
+    btn.classList.toggle('is-selected', isSel);
+    btn.setAttribute('aria-checked', String(isSel));
+    btn.tabIndex = isSel ? 0 : -1;
+  });
+  personaNext.disabled = false;
+  updatePreviewBase();
+}
+
+personaNext.addEventListener('click', () => {
+  if (!selectedPersona) return;
+  setStage('form');
+});
+
+// ============================================================
+// SECTION 4 — Form & validation
+// ============================================================
+
+const form = $('#claim-form');
+const fNameEl    = $('#f-name');
+const fCompanyEl = $('#f-company');
+const fLinkedinEl= $('#f-linkedin');
+const fOddsEl    = $('#f-odds');
+const previewName    = $('#preview-name');
+const previewSuffix  = $('#preview-suffix');
+const previewBase    = $('#preview-base');
+
+function showError(field, message) {
+  const wrap = $(`.field[data-field="${field}"]`);
+  const err  = $(`[data-error-for="${field}"]`);
+  if (wrap)  wrap.classList.toggle('has-error', Boolean(message));
+  if (err)   err.textContent = message || '';
+}
+
+function validateLinkedin(url) {
+  if (!url) return false;
+  try {
+    // Tolerate the user pasting bare hostnames.
+    const u = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return /linkedin\.com$/i.test(u.hostname) && /\/in\/[\w\-_.]+/i.test(u.pathname);
+  } catch { return false; }
+}
+
+function validateForm() {
+  let ok = true;
+  if (!fNameEl.value.trim()) { showError('name', 'Add your name.'); ok = false; } else showError('name');
+  if (!fCompanyEl.value.trim()) { showError('company', 'Add your company.'); ok = false; } else showError('company');
+  if (!validateLinkedin(fLinkedinEl.value.trim())) { showError('linkedin', 'Use a linkedin.com/in/... profile URL.'); ok = false; } else showError('linkedin');
+  if (!fOddsEl.value.trim()) { showError('odds', 'What odds did you beat?'); ok = false; } else showError('odds');
+  return ok;
+}
+
+[fNameEl, fCompanyEl, fLinkedinEl, fOddsEl].forEach(input => {
+  input.addEventListener('input', () => {
+    // clear inline error as user types
+    const field = input.closest('.field').dataset.field;
+    if ($(`.field[data-field="${field}"]`).classList.contains('has-error')) showError(field);
+    updatePreviewText();
+  });
+});
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (!validateForm()) return;
+  runPipeline().catch(err => {
+    console.error('[BTB pipeline failed]', err);
+    alert('Something broke while forging your brick. Check the console.');
+    setStage('form');
+  });
+});
+
+function updatePreviewText() {
+  const name = (fNameEl.value || 'YOUR NAME HERE').toUpperCase();
+  const company = (fCompanyEl.value || 'your company').toUpperCase();
+  previewName.innerHTML = wordWrapName(name);
+  previewSuffix.textContent = `the odds you broke to build ${company}`;
+}
+
+function wordWrapName(name) {
+  // simple two-line break on space if > 12 chars
+  if (name.length <= 12 || !name.includes(' ')) return escapeHtml(name);
+  const mid = Math.floor(name.length / 2);
+  const splitIdx = name.indexOf(' ', mid - 4);
+  if (splitIdx === -1) return escapeHtml(name);
+  return `${escapeHtml(name.slice(0, splitIdx))}<br />${escapeHtml(name.slice(splitIdx + 1))}`;
+}
+
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function updatePreviewBase() {
+  if (!selectedPersona) return;
+  const cfg = PERSONA_CONFIG[selectedPersona];
+  previewBase.src = cfg.baseImage;
+  previewBase.onload = () => previewBase.classList.remove('is-empty');
+  previewBase.onerror = () => previewBase.classList.add('is-empty');
+}
+
+// ============================================================
+// SECTION 5 — Step A: First-frame canvas compositing
+// ============================================================
+
+/**
+ * Load an image from a URL into an HTMLImageElement.
+ * @param {string} src
+ * @returns {Promise<HTMLImageElement>}
+ */
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = (e) => reject(new Error(`Failed to load image: ${src}`));
+    img.src = src;
+  });
+}
+
+/**
+ * Step A — Compose the "first frame": draw the persona's base image
+ * to a canvas at its native resolution, then engrave the user's
+ * "Odds Beaten" text onto the slab using a 2D affine transform +
+ * polygon clip + layered carved-stone shadowing.
+ *
+ * @param {Object} params
+ * @param {string} params.personaKey         - One of PERSONA_ORDER
+ * @param {string} params.oddsText           - User's "Odds Beaten" string
+ * @returns {Promise<{ dataUrl:string, width:number, height:number, baseFromFallback:boolean }>}
+ */
+async function composeFirstFrame({ personaKey, oddsText }) {
+  const cfg = PERSONA_CONFIG[personaKey];
+  let img;
+  let baseFromFallback = false;
+  try {
+    img = await loadImage(cfg.baseImage);
+  } catch (e) {
+    dbg('base image missing, drawing fallback panel:', cfg.baseImage);
+    baseFromFallback = true;
+    img = await drawFallbackBasePanel();
+  }
+
+  const W = img.naturalWidth || img.width;
+  const H = img.naturalHeight || img.height;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  ctx.drawImage(img, 0, 0, W, H);
+
+  // Engrave the slab text
+  drawSlabText(ctx, oddsText.toUpperCase(), W, H);
+
+  if (DEBUG) drawDebugSlab(ctx);
+
+  return { dataUrl: canvas.toDataURL('image/png'), width: W, height: H, baseFromFallback, canvas };
+}
+
+/**
+ * Renders a fallback "base image" when nothing is available in
+ * Base Images/. Mimics the glass-case + slab composition so the
+ * pipeline can run end-to-end with empty assets.
+ * @returns {Promise<HTMLImageElement>}
+ */
+async function drawFallbackBasePanel() {
+  const c = document.createElement('canvas');
+  c.width = 1080; c.height = 1080;
+  const ctx = c.getContext('2d');
+  // Glass case backdrop
+  const g = ctx.createRadialGradient(540, 540, 100, 540, 540, 760);
+  g.addColorStop(0, '#1f1f1f'); g.addColorStop(1, '#020202');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, c.width, c.height);
+  // Glass front edges (subtle outline)
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 2;
+  ctx.strokeRect(60, 60, c.width - 120, c.height - 120);
+
+  // Stone slab — match SLAB_CONFIG.clipPolygon (normalized → pixels)
+  // so the engraved text always falls inside the fallback slab.
+  const { poly } = resolveSlab(c.width, c.height);
+  const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]);
+  const slabBoxL = Math.min(...xs), slabBoxR = Math.max(...xs);
+  const slabBoxT = Math.min(...ys), slabBoxB = Math.max(...ys);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(poly[0][0], poly[0][1]);
+  for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
+  ctx.closePath();
+  const slabGrad = ctx.createLinearGradient(slabBoxL, slabBoxT, slabBoxR, slabBoxB);
+  slabGrad.addColorStop(0, '#4a443c');
+  slabGrad.addColorStop(0.5, '#352f29');
+  slabGrad.addColorStop(1, '#1a1610');
+  ctx.fillStyle = slabGrad;
+  ctx.fill();
+  // Faint stone-texture noise so the overlay blend has something to react to.
+  ctx.globalAlpha = 0.06;
+  for (let i = 0; i < 1400; i++) {
+    const px = slabBoxL + Math.random() * (slabBoxR - slabBoxL);
+    const py = slabBoxT + Math.random() * (slabBoxB - slabBoxT);
+    ctx.fillStyle = Math.random() < 0.5 ? '#000' : '#fff';
+    ctx.fillRect(px, py, 1.5, 1.5);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // Figurine silhouette on the right
+  ctx.fillStyle = '#9a9a9a';
+  ctx.beginPath(); ctx.ellipse(780, 600, 70, 180, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7a7a7a';
+  ctx.fillRect(720, 540, 130, 24);
+
+  const dataUrl = c.toDataURL('image/png');
+  return loadImage(dataUrl);
+}
+
+/**
+ * Engrave the slab text onto the canvas:
+ *   1. Clip to the slab polygon so nothing bleeds past the edges.
+ *   2. Apply a 2D affine (skew + rotate) anchored at textAnchor.
+ *   3. Auto-shrink font size until text fits in textMaxWidth/Height.
+ *   4. Stack three text draws (light offset, dark offset, mid main)
+ *      to fake carved-stone depth.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} text
+ * @param {number} W canvas width
+ * @param {number} H canvas height
+ */
+/**
+ * Resolve normalized SLAB_CONFIG into absolute pixel values for the
+ * current canvas. Centralised so both the renderer and the debug
+ * overlay use identical math.
+ */
+function resolveSlab(W, H) {
+  const C = SLAB_CONFIG;
+  return {
+    anchor: { x: C.textAnchor.x * W, y: C.textAnchor.y * H },
+    maxW:   C.textMaxWidth  * W,
+    maxH:   C.textMaxHeight * H,
+    poly:   C.clipPolygon.map(([nx, ny]) => [nx * W, ny * H]),
+  };
+}
+
+function drawSlabText(ctx, text, W, H) {
+  const C = SLAB_CONFIG;
+  const { anchor, maxW, maxH, poly } = resolveSlab(W, H);
+
+  ctx.save();
+  // Clip to slab polygon (canvas-space)
+  ctx.beginPath();
+  ctx.moveTo(poly[0][0], poly[0][1]);
+  for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
+  ctx.closePath();
+  ctx.clip();
+
+  // Move origin to text anchor, then apply rotation + skew
+  ctx.translate(anchor.x, anchor.y);
+  ctx.rotate(C.rotation * Math.PI / 180);
+  // 2D affine for skew — m21 = tan(skewY), m12 = tan(skewX)
+  ctx.transform(1, Math.tan(C.skewY * Math.PI / 180), Math.tan(C.skewX * Math.PI / 180), 1, 0, 0);
+
+  // Word-wrap into lines, then auto-fit to (maxW, maxH).
+  const lines = wrapTextByChars(text, C.softWrapAt);
+  const fontSize = fitFontSize(ctx, lines, {
+    fontFamily: C.fontFamily, fontWeight: C.fontWeight,
+    maxWidth: maxW, maxHeight: maxH, lineHeight: C.lineHeight,
+    letterSpacing: C.letterSpacing,
+  });
+
+  ctx.font = `${C.fontWeight} ${fontSize}px ${C.fontFamily}`;
+  ctx.textAlign = C.textAlign || 'center';
+  ctx.textBaseline = 'middle';
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${C.letterSpacing * fontSize}px`;
+
+  const lh = fontSize * C.lineHeight;
+  const startY = -lh * lines.length / 2 + lh / 2;
+  // Anchor sits at the visual center of the text block. With
+  // left-align, lines start at the box's left edge (-maxW/2);
+  // with right-align, they end at the right edge (+maxW/2);
+  // with center, the canvas API handles centering at x=0.
+  const drawX = C.textAlign === 'left'  ? -maxW / 2
+              : C.textAlign === 'right' ?  maxW / 2
+              :                            0;
+
+  // Embossment pass — highlight + shadow at offset, before the main
+  // fill, so each layer can carry its own blend mode. Stacked draw
+  // order: highlight → shadow → main, so the main covers the offset
+  // draws everywhere except where they "peek out" beyond the main
+  // letter shape, which is what creates the raised edge effect.
+  const emb = C.embossment;
+  if (emb && emb.enabled) {
+    const off = (emb.offsetEm || 0.04) * fontSize;
+    // Highlight peeks out the top-left of each letter
+    ctx.globalCompositeOperation = emb.highlight.blend || 'screen';
+    ctx.fillStyle = emb.highlight.color;
+    lines.forEach((line, i) => ctx.fillText(line, drawX - off, startY + i * lh - off));
+    // Shadow peeks out the bottom-right
+    ctx.globalCompositeOperation = emb.shadow.blend || 'multiply';
+    ctx.fillStyle = emb.shadow.color;
+    lines.forEach((line, i) => ctx.fillText(line, drawX + off, startY + i * lh + off));
+  }
+
+  // Main carved fill — overlay blend so the gray reacts to the
+  // stone's actual texture rather than painting on top.
+  ctx.globalCompositeOperation = C.compositeMode || 'source-over';
+  ctx.fillStyle = C.fontColor;
+  lines.forEach((line, i) => ctx.fillText(line, drawX, startY + i * lh));
+
+  dbg('slab text · %s · %s lines · %spx font · align=%s · canvas %dx%d', text, lines.length, fontSize, C.textAlign, W, H);
+  ctx.restore();
+}
+
+/**
+ * Soft-wrap text into lines on word boundaries, targeting maxChars
+ * per line. Falls back to a single line if the text is short.
+ */
+function wrapTextByChars(text, maxChars) {
+  if (text.length <= maxChars) return [text];
+  const words = text.split(/\s+/);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if (!cur.length) cur = w;
+    else if ((cur + ' ' + w).length <= maxChars) cur += ' ' + w;
+    else { lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/**
+ * Binary-search a font size so the longest line fits maxWidth and
+ * stacked lines fit maxHeight, factoring in the configured line
+ * height and letter spacing. Operates in untransformed text space.
+ */
+function fitFontSize(ctx, lines, { fontFamily, fontWeight, maxWidth, maxHeight, lineHeight, letterSpacing }) {
+  let lo = 12, hi = 240, best = lo;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    ctx.font = `${fontWeight} ${mid}px ${fontFamily}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${letterSpacing * mid}px`;
+    const widest = Math.max(...lines.map(l => ctx.measureText(l).width));
+    const totalH = mid * lineHeight * lines.length;
+    if (widest <= maxWidth && totalH <= maxHeight) { best = mid; lo = mid + 1; }
+    else { hi = mid - 1; }
+  }
+  return best;
+}
+
+/**
+ * Debug overlay: draws the slab clip polygon in red, the text-area
+ * bounding box in yellow, and the anchor point as a cyan crosshair —
+ * all on top of the Step-A canvas. Used to dial in SLAB_CONFIG by
+ * eye when a real base image is in place.
+ */
+function drawDebugSlab(ctx) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  const { anchor, maxW, maxH, poly } = resolveSlab(W, H);
+  ctx.save();
+
+  // Clip polygon — red dashed
+  ctx.strokeStyle = 'rgba(255, 40, 40, 1)';
+  ctx.setLineDash([14, 8]);
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(poly[0][0], poly[0][1]);
+  for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
+  ctx.closePath();
+  ctx.stroke();
+
+  // Text bounding box — yellow solid (drawn after the skew transform
+  // so the box matches the actual rendered text orientation).
+  ctx.save();
+  ctx.translate(anchor.x, anchor.y);
+  ctx.rotate(SLAB_CONFIG.rotation * Math.PI / 180);
+  ctx.transform(1, Math.tan(SLAB_CONFIG.skewY * Math.PI / 180), Math.tan(SLAB_CONFIG.skewX * Math.PI / 180), 1, 0, 0);
+  ctx.strokeStyle = 'rgba(255, 220, 0, 0.9)';
+  ctx.setLineDash([]);
+  ctx.lineWidth = 3;
+  ctx.strokeRect(-maxW / 2, -maxH / 2, maxW, maxH);
+  ctx.restore();
+
+  // Anchor crosshair — cyan
+  ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(60, 200, 255, 1)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(anchor.x - 28, anchor.y); ctx.lineTo(anchor.x + 28, anchor.y);
+  ctx.moveTo(anchor.x, anchor.y - 28); ctx.lineTo(anchor.x, anchor.y + 28);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(60, 200, 255, 1)';
+  ctx.beginPath(); ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2); ctx.fill();
+
+  // Label with canvas dimensions + key numbers
+  ctx.fillStyle = 'rgba(0,0,0,0.78)';
+  ctx.fillRect(8, 8, 360, 88);
+  ctx.fillStyle = '#fff';
+  ctx.font = '600 16px ui-monospace, SF Mono, monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(`canvas: ${W} × ${H}`, 18, 18);
+  ctx.fillText(`anchor: ${anchor.x.toFixed(0)}, ${anchor.y.toFixed(0)} px  ` +
+               `(${(SLAB_CONFIG.textAnchor.x*100).toFixed(1)}%, ${(SLAB_CONFIG.textAnchor.y*100).toFixed(1)}%)`, 18, 40);
+  ctx.fillText(`textMax: ${maxW.toFixed(0)} × ${maxH.toFixed(0)} px`, 18, 62);
+
+  ctx.restore();
+}
+
+// ============================================================
+// SECTION 6 — Step B: Kling video generation (stubbed)
+// ============================================================
+
+/**
+ * Step B — Image-to-video via Kling. STUBBED when KLING_API_KEY is
+ * empty: returns the first-frame still as a fake "video" result so
+ * Step C can run end-to-end with no network calls.
+ *
+ * When the key is supplied, the real path:
+ *   1. POSTs the first-frame PNG (as base64) + KLING_PROMPT to the
+ *      image-to-video endpoint, asking for KLING_DURATION seconds.
+ *   2. Receives a task_id, polls GET /{task_id} every
+ *      KLING_POLL_INTERVAL_MS until status=succeed/failed
+ *      (cap at KLING_POLL_TIMEOUT_MS).
+ *   3. Returns the resulting MP4 URL.
+ *
+ * @param {string} firstFrameDataUrl  PNG data URL from Step A
+ * @param {string} prompt             text-to-video prompt
+ * @returns {Promise<{type:'image'|'video', dataUrl?:string, url?:string}>}
+ */
+async function generateVideoFromFrame(firstFrameDataUrl, prompt) {
+  if (!KLING_API_KEY) {
+    console.warn('[Kling stub] No API key — returning still image as result.');
+    return { type: 'image', dataUrl: firstFrameDataUrl };
+  }
+
+  // Live path — written but not exercised until KLING_API_KEY is set.
+  const base64 = firstFrameDataUrl.replace(/^data:image\/\w+;base64,/, '');
+  const createRes = await fetch(`${KLING_ENDPOINT}/v1/videos/image2video`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${KLING_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model_name: KLING_MODEL,
+      image: base64,
+      prompt: prompt || KLING_PROMPT,
+      duration: KLING_DURATION,
+      aspect_ratio: '1:1',
+      mode: 'pro',
+      cfg_scale: 0.5,
+    }),
+  });
+  if (!createRes.ok) throw new Error(`Kling create failed: ${createRes.status}`);
+  const { data } = await createRes.json();
+  const taskId = data.task_id;
+  if (!taskId) throw new Error('Kling did not return a task_id');
+
+  const start = Date.now();
+  while (Date.now() - start < KLING_POLL_TIMEOUT_MS) {
+    await new Promise(r => setTimeout(r, KLING_POLL_INTERVAL_MS));
+    const pollRes = await fetch(`${KLING_ENDPOINT}/v1/videos/image2video/${taskId}`, {
+      headers: { 'Authorization': `Bearer ${KLING_API_KEY}` },
+    });
+    if (!pollRes.ok) throw new Error(`Kling poll failed: ${pollRes.status}`);
+    const pollJson = await pollRes.json();
+    const status = pollJson.data?.task_status;
+    dbg('kling status', status);
+    if (status === 'succeed') {
+      const url = pollJson.data?.task_result?.videos?.[0]?.url;
+      if (!url) throw new Error('Kling succeeded but no video URL');
+      return { type: 'video', url };
+    }
+    if (status === 'failed') throw new Error(`Kling task failed: ${pollJson.data?.task_status_msg || 'unknown'}`);
+  }
+  throw new Error('Kling poll timed out');
+}
+
+// ============================================================
+// SECTION 7 — Step C: Final poster compositing
+// ============================================================
+
+/**
+ * Step C — Compose the final 1080×1350 shareable poster.
+ *
+ * Stub mode (Step B returned an image):
+ *   Letterbox the still into the 1080×1350 frame, draw the overlay,
+ *   export as PNG.
+ *
+ * Live mode (Step B returned a video URL):
+ *   Load the MP4 into a hidden <video>, draw each frame to canvas
+ *   alongside the overlay via rAF, capture the canvas stream via
+ *   MediaRecorder. Output is WebM in Chrome/Firefox (Safari can
+ *   produce MP4). Swap to ffmpeg.wasm for guaranteed MP4 in prod.
+ *   TODO: swap to ffmpeg.wasm for MP4 output.
+ *
+ * @param {{type:'image'|'video', dataUrl?:string, url?:string}} stepBOut
+ * @param {{name:string, company:string, oddsText:string}} userData
+ * @returns {Promise<{type:'image'|'video', blob:Blob, mimeType:string}>}
+ */
+async function composeFinalPoster(stepBOut, userData) {
+  const canvas = document.createElement('canvas');
+  canvas.width = FINAL_WIDTH; canvas.height = FINAL_HEIGHT;
+  const ctx = canvas.getContext('2d');
+
+  const logoImg = await getRazorpayLogo();
+
+  if (stepBOut.type === 'image') {
+    const img = await loadImage(stepBOut.dataUrl);
+    drawPosterFrame(ctx, img, userData, logoImg);
+    const blob = await canvasToBlob(canvas, 'image/png');
+    return { type: 'image', blob, mimeType: 'image/png' };
+  }
+
+  // Live (video) path
+  const video = document.createElement('video');
+  video.src = stepBOut.url;
+  video.crossOrigin = 'anonymous';
+  video.muted = true; video.playsInline = true;
+  await new Promise((resolve, reject) => {
+    video.onloadedmetadata = resolve;
+    video.onerror = () => reject(new Error('video load failed'));
+  });
+
+  const stream = canvas.captureStream(30);
+  const mimeType = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm;codecs=vp9';
+  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6_000_000 });
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  const stopped = new Promise(r => recorder.onstop = r);
+
+  recorder.start();
+  await video.play();
+
+  let stopRequested = false;
+  function tick() {
+    if (stopRequested) return;
+    drawPosterFrame(ctx, video, userData, logoImg);
+    if (video.ended || video.paused) { recorder.stop(); stopRequested = true; return; }
+    requestAnimationFrame(tick);
+  }
+  tick();
+  await new Promise(r => video.onended = r);
+  await stopped;
+  const blob = new Blob(chunks, { type: mimeType });
+  return { type: 'video', blob, mimeType };
+}
+
+// Cache: Razorpay logo loaded once and reused per render.
+let _razorpayLogoCache = null;
+async function getRazorpayLogo() {
+  if (_razorpayLogoCache !== null) return _razorpayLogoCache;
+  try {
+    _razorpayLogoCache = await loadImage(POSTER_OVERLAY.logo.src);
+  } catch {
+    _razorpayLogoCache = false; // negative cache → fall back to text wordmark
+  }
+  return _razorpayLogoCache;
+}
+
+/**
+ * Render one frame of the final 1080×1350 poster.
+ * Layout mirrors Figma node 2103:415 — all numbers come from
+ * POSTER_OVERLAY (Section 1). To re-author the layout, edit that
+ * config; this function is just the renderer.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {HTMLImageElement|HTMLVideoElement|null} mediaEl  Step-B output
+ * @param {{name:string, company:string, oddsText:string}} userData
+ * @param {HTMLImageElement|false|null} logoImg  Pre-loaded Razorpay logo, or false to draw text wordmark
+ */
+function drawPosterFrame(ctx, mediaEl, userData, logoImg) {
+  const P = POSTER_OVERLAY;
+  const fx = v => v * FINAL_WIDTH / P.figW;     // Figma-x → canvas-x
+  const fy = v => v * FINAL_HEIGHT / P.figH;    // Figma-y → canvas-y
+  const ff = v => v * FINAL_WIDTH / P.figW;     // fonts/strokes scale with X
+
+  // Background
+  ctx.fillStyle = P.bg;
+  ctx.fillRect(0, 0, FINAL_WIDTH, FINAL_HEIGHT);
+
+  // ── Media slot (Kling video / Step-A still), letterboxed inside the Figma media rect
+  const mw = mediaEl?.naturalWidth || mediaEl?.videoWidth || mediaEl?.width || 0;
+  const mh = mediaEl?.naturalHeight || mediaEl?.videoHeight || mediaEl?.height || 0;
+  if (mw && mh) {
+    const bx = fx(P.media.x), by = fy(P.media.y), bw = fx(P.media.w), bh = fy(P.media.h);
+    const r = Math.min(bw / mw, bh / mh);
+    const drawW = mw * r, drawH = mh * r;
+    ctx.drawImage(mediaEl, bx + (bw - drawW) / 2, by + (bh - drawH) / 2, drawW, drawH);
+  }
+
+  renderPosterOverlay(ctx, userData, logoImg, { fx, fy, ff });
+}
+
+/**
+ * Draw all the static + dynamic overlay text/shapes on top of the
+ * media. Pure render — no async, no measurement-driven layout.
+ */
+function renderPosterOverlay(ctx, { name, company }, logoImg, { fx, fy, ff }) {
+  const P = POSTER_OVERLAY;
+
+  // ── Razorpay logo (top-left)
+  const L = P.logo;
+  if (logoImg && logoImg !== false) {
+    ctx.drawImage(logoImg, fx(L.x), fy(L.y), fx(L.w), fy(L.h));
+  } else {
+    // Fallback wordmark if the SVG didn't load
+    ctx.fillStyle = '#fff';
+    ctx.font = `700 ${ff(11)}px 'Inter', sans-serif`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('Razorpay', fx(L.x), fy(L.y) + fy(L.h) / 2);
+  }
+
+  // ── BREAK TO BUILD pill (top-right) — solid blue with white text
+  const PL = P.pill;
+  ctx.fillStyle = P.accent;
+  ctx.fillRect(fx(PL.x), fy(PL.y), fx(PL.w), fy(PL.h));
+  ctx.fillStyle = '#fff';
+  ctx.font = `700 ${ff(PL.fontSize)}px 'Unbounded', 'Anton', sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(PL.label, fx(PL.x + PL.w / 2), fy(PL.y + PL.h / 2) + ff(0.5));
+
+  // ── THANK YOU eyebrow (centered)
+  ctx.fillStyle = P.textColor;
+  ctx.font = `400 ${ff(P.eyebrow.fontSize)}px 'Unbounded', sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(P.eyebrow.text, fx(P.centerX), fy(P.eyebrow.y));
+
+  // ── Big NAME (Unbounded Black, two lines if needed)
+  ctx.font = `${P.name.weight} ${ff(P.name.fontSize)}px 'Unbounded', sans-serif`;
+  const nameLines = wrapPosterName((name || 'YOUR NAME').toUpperCase(), ctx, fx(P.figW - 60));
+  const lineH = ff(P.name.lineHeight);
+  nameLines.forEach((line, i) => {
+    ctx.fillText(line, fx(P.centerX), fy(P.name.y) + i * lineH);
+  });
+
+  // ── Subtitle ("for BEATING THE ODDS AND BUILDING [COMPANY]")
+  ctx.font = `400 ${ff(P.subtitle.fontSize)}px 'Unbounded', sans-serif`;
+  const subtitle = `${P.subtitle.prefix}${(company || '').toUpperCase()}`;
+  const subLines = wrapPosterSubtitle(subtitle, ctx, fx(P.subtitle.maxWidth));
+  const subLineH = ff(P.subtitle.lineHeight);
+  subLines.forEach((line, i) => {
+    ctx.fillText(line, fx(P.centerX), fy(P.subtitle.y) + i * subLineH);
+  });
+
+  // ── Bottom ticker strip ("BREAK TO BUILD ★ BREAK TO BUILD ★ ...")
+  ctx.fillStyle = P.accent;
+  ctx.fillRect(0, fy(P.ticker.y), FINAL_WIDTH, fy(P.ticker.h));
+  ctx.fillStyle = P.ticker.white;
+  ctx.font = `400 ${ff(P.tickerFontSize)}px 'Unbounded', sans-serif`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const tickerY = fy(P.ticker.y + P.ticker.h / 2);
+  const tile = `${P.tickerTile}  ★  `;
+  const tileW = ctx.measureText(tile).width;
+  let x = -ff(8);
+  while (x < FINAL_WIDTH + tileW) {
+    ctx.fillText(tile, x, tickerY);
+    x += tileW;
+  }
+}
+
+/**
+ * Break the name across (up to) two lines, like the Figma:
+ * single short name → one line; multi-word name → wrap on first space
+ * after the midpoint.
+ */
+function wrapPosterName(name, ctx, maxW) {
+  // try single line first
+  if (ctx.measureText(name).width <= maxW && !name.includes(' ')) return [name];
+  if (!name.includes(' ')) return [name]; // can't wrap a single word
+  // wrap on the space closest to the midpoint
+  const mid = Math.floor(name.length / 2);
+  let splitIdx = -1, bestDist = Infinity;
+  for (let i = 0; i < name.length; i++) {
+    if (name[i] === ' ' && Math.abs(i - mid) < bestDist) { splitIdx = i; bestDist = Math.abs(i - mid); }
+  }
+  if (splitIdx === -1) return [name];
+  return [name.slice(0, splitIdx), name.slice(splitIdx + 1)];
+}
+
+/** Word-wrap the subtitle to fit maxW by measuring against the current ctx.font. */
+function wrapPosterSubtitle(text, ctx, maxW) {
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const tryLine = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(tryLine).width <= maxW) cur = tryLine;
+    else { if (cur) lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function canvasToBlob(canvas, mime = 'image/png', quality) {
+  return new Promise(resolve => canvas.toBlob(resolve, mime, quality));
+}
+
+// ============================================================
+// SECTION 8 — Result modal & download/share
+// ============================================================
+
+const resultMediaWrap = $('#result-media-wrap');
+const resultDownload  = $('#result-download');
+const resultShare     = $('#result-share');
+const resultRestart   = $('#result-restart');
+const resultMeta      = $('#result-meta');
+const loadingText     = $('#loading-text');
+const loadingDetail   = $('#loading-detail');
+let currentResult = null;
+
+function setLoading(stage) {
+  const copy = LOADING_STAGES[stage];
+  if (!copy) return;
+  loadingText.textContent = copy.headline;
+  loadingDetail.textContent = copy.detail;
+}
+
+/**
+ * Block until web fonts are loaded — canvas falls back to system
+ * sans-serif if we draw before the Google fonts hydrate, which both
+ * breaks the visual AND throws off measureText (auto-fit returns
+ * the wrong size). Cheap to call repeatedly: results are cached.
+ */
+async function preloadFonts() {
+  if (!document.fonts) return;
+  try {
+    await Promise.all([
+      document.fonts.load('400 100px Anton'),
+      document.fonts.load('400 200px Anton'),
+      document.fonts.load('400 100px "Special Gothic Condensed One"'),
+      document.fonts.load('400 200px "Special Gothic Condensed One"'),
+      document.fonts.load('900 80px Unbounded'),
+      document.fonts.load('400 32px Unbounded'),
+      document.fonts.load('400 18px Inter'),
+    ]);
+    await document.fonts.ready;
+  } catch (e) { dbg('font preload warning:', e); }
+}
+
+async function runPipeline() {
+  const userData = {
+    name: fNameEl.value.trim(),
+    company: fCompanyEl.value.trim(),
+    linkedin: fLinkedinEl.value.trim(),
+    oddsText: fOddsEl.value.trim(),
+  };
+  setStage('loading');
+  setLoading('composing');
+
+  await dbgTime('Fonts', preloadFonts);
+
+  const stepA = await dbgTime('Step A', () => composeFirstFrame({
+    personaKey: selectedPersona,
+    oddsText: userData.oddsText,
+  }));
+
+  setLoading(KLING_API_KEY ? 'klingLive' : 'klingStub');
+  const stepB = await dbgTime('Step B', () => generateVideoFromFrame(stepA.dataUrl, KLING_PROMPT));
+
+  setLoading('finalize');
+  const stepC = await dbgTime('Step C', () => composeFinalPoster(stepB, userData));
+
+  currentResult = stepC;
+  showResult(stepC, stepA);
+}
+
+function showResult(stepC, stepA) {
+  resultMediaWrap.innerHTML = '';
+  const url = URL.createObjectURL(stepC.blob);
+  if (stepC.type === 'image') {
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = 'Your founder\'s brick';
+    resultMediaWrap.appendChild(img);
+  } else {
+    const v = document.createElement('video');
+    v.src = url; v.controls = true; v.autoplay = true; v.loop = true; v.muted = true; v.playsInline = true;
+    resultMediaWrap.appendChild(v);
+  }
+  const ext = stepC.mimeType.includes('mp4') ? 'mp4' : stepC.mimeType.includes('webm') ? 'webm' : 'png';
+  resultMeta.textContent = stepA?.baseFromFallback
+    ? `Note: no base image in /Base Images/. Used a generated placeholder. Output: ${stepC.mimeType}`
+    : `Output: ${stepC.mimeType}`;
+  resultDownload.dataset.ext = ext;
+  setStage('result');
+}
+
+resultDownload.addEventListener('click', () => {
+  if (!currentResult) return;
+  const ext = resultDownload.dataset.ext || 'png';
+  const url = URL.createObjectURL(currentResult.blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = makeFilename(ext);
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+resultShare.addEventListener('click', async () => {
+  if (!currentResult) return;
+  const ext = resultDownload.dataset.ext || 'png';
+  const file = new File([currentResult.blob], makeFilename(ext), { type: currentResult.mimeType });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'My Founder\'s Brick', text: 'I broke the odds to build something. Break to Build × Razorpay.' });
+    } catch (e) { /* user cancelled */ }
+  } else {
+    // fallback: download + copy a hint
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(currentResult.blob);
+    a.download = makeFilename(ext);
+    document.body.appendChild(a); a.click(); a.remove();
+    alert('Share API unavailable here — file downloaded instead.');
+  }
+});
+
+resultRestart.addEventListener('click', () => {
+  form.reset();
+  selectedPersona = null;
+  $$('.persona-thumb').forEach(b => { b.classList.remove('is-selected'); b.setAttribute('aria-checked','false'); b.tabIndex = -1; });
+  if (personaGrid.firstElementChild) personaGrid.firstElementChild.tabIndex = 0;
+  personaNext.disabled = true;
+  updatePreviewText();
+  setStage('persona');
+});
+
+function makeFilename(ext) {
+  const safeName = (fNameEl.value.trim() || 'founder').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g,'');
+  return `founders-brick-${safeName}.${ext}`;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+renderPersonaGrid();
+updatePreviewText();
+dbg('ready. DEBUG=%s. personas=%o', DEBUG, PERSONA_ORDER);
+</script>
+
+</body>
+</html>
