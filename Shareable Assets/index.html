@@ -861,7 +861,7 @@
             <div class="field-row">
               <div class="field" data-field="odds">
                 <label class="field-label" for="f-odds">Odds Beaten</label>
-                <input id="f-odds" class="field-input" name="odds" type="text" maxlength="30"
+                <input id="f-odds" class="field-input" name="odds" type="text" maxlength="40"
                   placeholder="e.g. 1 IN 10,000" required />
               </div>
               <div class="field-error" data-error-for="odds"></div>
@@ -982,8 +982,15 @@
       // The font auto-shrinks until ALL lines fit inside this box —
       // so REDUCING these values is how you scale text DOWN, and
       // increasing them lets text grow LARGER.
+      // (These define INNER padding from the slab edge: smaller box
+      // = more padding between text and the clipPolygon.)
       textMaxWidth: 0.22,
-      textMaxHeight: 0.14,
+      textMaxHeight: 0.18,
+      // Lowest font size (px) the auto-fit will accept before
+      // overflowing the box. Prevents long text from shrinking
+      // to an unreadable size — but anything bigger than this
+      // box at min font will spill past `textMaxHeight`.
+      minFontSize: 38,
       // Type
       fontFamily: "'Special Gothic Condensed One', 'Anton', sans-serif",
       fontWeight: 400,
@@ -997,6 +1004,7 @@
       letterSpacing: -0.02,                               // em — figma: tracking-[-0.4331px] @ 21.654px
       textAlign: 'left',                              // 'left' | 'center' | 'right'
       compositeMode: 'overlay',                           // figma: mix-blend-overlay
+      opacity: 0.8,                                       // 0–1 — applied AFTER the overlay blend; lowers the engraving's strength
       // Embossment — DISABLED. The carved look now comes from
       // inner shadow + noise (below) instead of a highlight+shadow
       // offset stack. Keeping the field so it's easy to re-enable
@@ -1021,18 +1029,20 @@
         blur: 9,
         color: 'rgba(0,0,0,0.95)',
       },
-      // Fake-perspective transform on the text block.
-      skewX: 8,                                        // deg — figma: skew-x-8
+      // Fake-perspective transform on the text block — these are
+      // tuned to follow Persona2.mp4's actual slab face:
+      // the slab's top edge slopes ~6° clockwise (TR sits lower than
+      // TL), so we ROTATE the text clockwise by the same amount,
+      // then add a small skewX so the verticals follow the slab's
+      // slight inward lean.
+      skewX: 10,
       skewY: 0,
-      rotation: -0.91,                                    // deg — figma: rotate-[-0.91deg]
+      rotation: -10,
       // Polygon clipping the text to the slab's visible front face.
       // Each point is [xFraction, yFraction] of the video frame.
       // Tuned for Persona2.mp4 frame 0 — refine via ?debug=1.
       //                top-L         top-R         bot-R         bot-L
       clipPolygon: [[0.13, 0.46], [0.56, 0.50], [0.55, 0.92], [0.12, 0.93]],
-      // Lines wrap at this character count before auto-fit kicks in.
-      // 6 produces the figma's 4-line break for "YOU DON'T HAVE A DEGREE".
-      softWrapAt: 6,
     };
 
     /**
@@ -1341,7 +1351,8 @@
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      if (!validateForm()) return;
+      // [TEMP-DISABLED-VALIDATION] Re-enable when ready: uncomment the next line.
+      // if (!validateForm()) return;
       runPipeline().catch(err => {
         console.error('[BTB pipeline failed]', err);
         alert('Something broke while forging your brick. Check the console.');
@@ -1526,9 +1537,9 @@
       const key = JSON.stringify([
         text, W, H,
         C.fontColor, C.fontFamily, C.fontWeight,
-        C.textAnchor, C.textMaxWidth, C.textMaxHeight,
+        C.textAnchor, C.textMaxWidth, C.textMaxHeight, C.minFontSize,
         C.clipPolygon, C.skewX, C.skewY, C.rotation,
-        C.lineHeight, C.letterSpacing, C.textAlign, C.softWrapAt,
+        C.lineHeight, C.letterSpacing, C.textAlign,
         C.noise, C.innerShadow,
       ]);
       if (_slabLayerCache.key === key && _slabLayerCache.canvas) return _slabLayerCache.canvas;
@@ -1566,12 +1577,24 @@
       ctx.rotate(C.rotation * Math.PI / 180);
       ctx.transform(1, Math.tan(C.skewY * Math.PI / 180), Math.tan(C.skewX * Math.PI / 180), 1, 0, 0);
 
-      // Word-wrap + auto-fit
-      const lines = wrapTextByChars(text, C.softWrapAt);
-      const fontSize = fitFontSize(ctx, lines, {
-        fontFamily: C.fontFamily, fontWeight: C.fontWeight,
-        maxWidth: maxW, maxHeight: maxH, lineHeight: C.lineHeight,
+      // Word-wrap + auto-fit: binary-search the largest font size at
+      // which a greedy word wrap fits the TRANSFORMED visual bbox
+      // inside maxW × maxH. Because rotation + skew expand the
+      // rendered footprint past the raw text width, the fitter
+      // accounts for the transform so text never bleeds past the
+      // box even when the slab is tilted.
+      const { lines, fontSize } = wrapAndFit(text, ctx, {
+        fontFamily: C.fontFamily,
+        fontWeight: C.fontWeight,
+        maxWidth: maxW,
+        maxHeight: maxH,
+        lineHeight: C.lineHeight,
         letterSpacing: C.letterSpacing,
+        minFontSize: C.minFontSize ?? 30,
+        rotation: C.rotation,
+        skewX: C.skewX,
+        skewY: C.skewY,
+        textAlign: C.textAlign || 'left',
       });
 
       ctx.font = `${C.fontWeight} ${fontSize}px ${C.fontFamily}`;
@@ -1653,46 +1676,120 @@
       const layer = getSlabTextLayer(text, W, H);
       ctx.save();
       ctx.globalCompositeOperation = SLAB_CONFIG.compositeMode || 'source-over';
+      // Opacity is applied at composite time (after the overlay
+      // blend) — change `SLAB_CONFIG.opacity` to scale the engraving
+      // strength up/down without re-rendering the cached layer.
+      ctx.globalAlpha = SLAB_CONFIG.opacity ?? 1;
       ctx.drawImage(layer, 0, 0);
       ctx.restore();
-      dbg('slab text · %s · %d×%d · cached layer', text, W, H);
+      dbg('slab text · %s · %d×%d · cached layer · alpha=%s', text, W, H, ctx.globalAlpha);
     }
 
     /**
-     * Soft-wrap text into lines on word boundaries, targeting maxChars
-     * per line. Falls back to a single line if the text is short.
+     * Greedy word-wrap: pack as many whole words onto each line as
+     * fit within `maxWidth` at the context's CURRENT font setting.
+     * Standard text-flow algorithm — produces minimum-line-count
+     * wraps for whatever font size we're testing.
      */
-    function wrapTextByChars(text, maxChars) {
-      if (text.length <= maxChars) return [text];
-      const words = text.split(/\s+/);
+    function wrapGreedy(text, ctx, maxWidth) {
+      const words = (text || '').split(/\s+/).filter(Boolean);
+      if (words.length === 0) return [text || ''];
       const lines = [];
       let cur = '';
       for (const w of words) {
-        if (!cur.length) cur = w;
-        else if ((cur + ' ' + w).length <= maxChars) cur += ' ' + w;
-        else { lines.push(cur); cur = w; }
+        const tryLine = cur ? cur + ' ' + w : w;
+        if (ctx.measureText(tryLine).width <= maxWidth) cur = tryLine;
+        else { if (cur) lines.push(cur); cur = w; }
       }
       if (cur) lines.push(cur);
-      return lines;
+      return lines.length ? lines : [text];
     }
 
     /**
-     * Binary-search a font size so the longest line fits maxWidth and
-     * stacked lines fit maxHeight, factoring in the configured line
-     * height and letter spacing. Operates in untransformed text space.
+     * Binary-search the LARGEST font size at which a greedy word-wrap
+     * of `text` fits inside (maxWidth × maxHeight). Returns the lines
+     * AND the chosen font size together — they're computed against
+     * the same font, so they stay consistent.
+     *
+     * Bounded below by `minFontSize` so long inputs don't shrink to
+     * an unreadable size: if even the minimum doesn't fit the box,
+     * we accept the overflow rather than going smaller.
      */
-    function fitFontSize(ctx, lines, { fontFamily, fontWeight, maxWidth, maxHeight, lineHeight, letterSpacing }) {
-      let lo = 12, hi = 240, best = lo;
+    function wrapAndFit(text, ctx, opts) {
+      const {
+        fontFamily, fontWeight, maxWidth, maxHeight,
+        lineHeight, letterSpacing,
+        rotation = 0, skewX = 0, skewY = 0,
+        textAlign = 'left',
+        minFontSize = 30,
+        maxFontSize = 240,
+      } = opts;
+
+      // Pre-compute transform constants once.
+      const r = rotation * Math.PI / 180;
+      const cos = Math.cos(r), sin = Math.sin(r);
+      const tanSX = Math.tan(skewX * Math.PI / 180);
+      const tanSY = Math.tan(skewY * Math.PI / 180);
+      const halfMaxW = maxWidth / 2;
+      const halfMaxH = maxHeight / 2;
+
+      /**
+       * Given the rendered rectangle's untransformed width and height,
+       * compute the visual axis-aligned bbox AFTER skew + rotation.
+       * Returns true if the visual extents stay inside the (maxWidth
+       * × maxHeight) box centered at the anchor.
+       */
+      function visualFits(widest, totalH) {
+        // Rectangle anchor — depends on text alignment.
+        let rectLeft;
+        if (textAlign === 'left')       rectLeft = -halfMaxW;
+        else if (textAlign === 'right') rectLeft =  halfMaxW - widest;
+        else                            rectLeft = -widest / 2;
+        const rectRight = rectLeft + widest;
+        const rectTop = -totalH / 2;
+        const rectBottom = totalH / 2;
+        const corners = [
+          [rectLeft, rectTop], [rectRight, rectTop],
+          [rectRight, rectBottom], [rectLeft, rectBottom],
+        ];
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const [cx, cy] of corners) {
+          // Apply skew then rotation, same order as ctx.transform usage.
+          const sx = cx + cy * tanSX;
+          const sy = cx * tanSY + cy;
+          const rx = sx * cos - sy * sin;
+          const ry = sx * sin + sy * cos;
+          if (rx < minX) minX = rx;
+          if (rx > maxX) maxX = rx;
+          if (ry < minY) minY = ry;
+          if (ry > maxY) maxY = ry;
+        }
+        return minX >= -halfMaxW && maxX <= halfMaxW &&
+               minY >= -halfMaxH && maxY <= halfMaxH;
+      }
+
+      let lo = minFontSize, hi = maxFontSize;
+      let best = null;
       while (lo <= hi) {
         const mid = Math.floor((lo + hi) / 2);
         ctx.font = `${fontWeight} ${mid}px ${fontFamily}`;
         if ('letterSpacing' in ctx) ctx.letterSpacing = `${letterSpacing * mid}px`;
+        const lines = wrapGreedy(text, ctx, maxWidth);
         const widest = Math.max(...lines.map(l => ctx.measureText(l).width));
-        const totalH = mid * lineHeight * lines.length;
-        if (widest <= maxWidth && totalH <= maxHeight) { best = mid; lo = mid + 1; }
-        else { hi = mid - 1; }
+        const totalH = lines.length * lineHeight * mid;
+        if (visualFits(widest, totalH)) {
+          best = { fontSize: mid, lines };
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
       }
-      return best;
+
+      if (best) return best;
+      // Floor: render at minFontSize even if it overflows the box.
+      ctx.font = `${fontWeight} ${minFontSize}px ${fontFamily}`;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${letterSpacing * minFontSize}px`;
+      return { fontSize: minFontSize, lines: wrapGreedy(text, ctx, maxWidth) };
     }
 
     /**
