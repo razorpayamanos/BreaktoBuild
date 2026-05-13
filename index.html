@@ -70,6 +70,9 @@
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <!-- Framer Motion 10 (UMD) — exposes window.Motion -->
   <script crossorigin src="https://unpkg.com/framer-motion@10.18.0/dist/framer-motion.js"></script>
+  <!-- Three.js r146 (last version with UMD GLTFLoader at /examples/js/) — for the brick explosion -->
+  <script crossorigin src="https://unpkg.com/three@0.146.0/build/three.min.js"></script>
+  <script crossorigin src="https://unpkg.com/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
   <!-- Babel Standalone (transpiles inline JSX + TypeScript in the browser) -->
   <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 
@@ -875,37 +878,382 @@
       );
     }
 
-    // Plays the transparent brick-blast webm aligned to the focal brick rect.
-    // Calls onEnded when the video finishes (modal-close + cavity commit happen there).
-    function BrickBreakVideo({ x, y, width, height, src, onEnded }) {
-      const videoRef = useRef(null);
-      useEffect(() => {
-        // Some browsers ignore autoplay until a manual play() — kick it off.
-        const v = videoRef.current;
-        if (v) {
-          const p = v.play();
-          if (p && typeof p.catch === "function") p.catch(() => { });
+    // ============================================================
+    // === 3D Brick Explosion =====================================
+    // ============================================================
+    // Cache the loaded GLB at module scope so re-explosions reuse the parsed
+    // geometry instead of re-fetching/re-parsing (HTTP cache helps too, but
+    // re-parsing GLTF is the slow part).
+    let __brickGlbPromise = null;
+    function loadBrickGlb() {
+      if (!window.THREE || !window.THREE.GLTFLoader) {
+        return Promise.reject(new Error("Three.js / GLTFLoader not available"));
+      }
+      if (__brickGlbPromise) return __brickGlbPromise;
+      window.THREE.Cache.enabled = true;
+      const loader = new window.THREE.GLTFLoader();
+      __brickGlbPromise = new Promise((resolve, reject) => {
+        loader.load("./Brick.glb", resolve, undefined, reject);
+      });
+      // Reset cache on failure so the next attempt can retry.
+      __brickGlbPromise.catch(() => { __brickGlbPromise = null; });
+      return __brickGlbPromise;
+    }
+
+    // Find the first mesh in a loaded GLB scene graph.
+    function findFirstMesh(object) {
+      let result = null;
+      object.traverse((c) => { if (!result && c.isMesh) result = c; });
+      return result;
+    }
+
+    // Auto-orient a brick geometry so the smallest dim is Z (depth into screen)
+    // and the largest is X (width). Different GLB exporters default to different
+    // up-axes (Blender Z-up, glTF Y-up); this normalizes any of them. Returns
+    // the new bbox-size vector after rotation.
+    function orientBrickGeometry(geom) {
+      const THREE = window.THREE;
+      geom.computeBoundingBox();
+      let s = geom.boundingBox.getSize(new THREE.Vector3());
+      // Pass 1: smallest dim -> Z. Rotating around Y swaps X↔Z; around X swaps Y↔Z.
+      if (s.x < s.y && s.x < s.z) {
+        geom.rotateY(Math.PI / 2);
+      } else if (s.y < s.x && s.y < s.z) {
+        geom.rotateX(Math.PI / 2);
+      }
+      geom.computeBoundingBox();
+      s = geom.boundingBox.getSize(new THREE.Vector3());
+      // Pass 2: brick should be wider than tall. If not, rotate around Z.
+      if (s.x < s.y) {
+        geom.rotateZ(Math.PI / 2);
+        geom.computeBoundingBox();
+        s = geom.boundingBox.getSize(new THREE.Vector3());
+      }
+      return s;
+    }
+
+    // Split a mesh's geometry into spatial chunks so the explosion shows
+    // chunky shards (not individual triangles). Z=1 keeps each chunk full-depth
+    // so it reads as a 3D block instead of a thin sliver. Returns an array of
+    // { mesh, velocity, angularVelocity, gravity } records ready to animate.
+    function fragmentBrickMesh(geometry, sharedMaterial, scene, size, chunksX, chunksY, chunksZ) {
+      const THREE = window.THREE;
+      const positions = geometry.attributes.position;
+      const uvs = geometry.attributes.uv;
+      const normals = geometry.attributes.normal;
+
+      let triangleCount, getIdx;
+      if (geometry.index) {
+        const idx = geometry.index;
+        triangleCount = idx.count / 3;
+        getIdx = (i) => idx.getX(i);
+      } else {
+        triangleCount = positions.count / 3;
+        getIdx = (i) => i;
+      }
+
+      const cellW = size.x / chunksX;
+      const cellH = size.y / chunksY;
+      const cellD = size.z / Math.max(1, chunksZ);
+      const halfX = size.x / 2, halfY = size.y / 2, halfZ = size.z / 2;
+      const chunks = new Map();
+
+      for (let t = 0; t < triangleCount; t++) {
+        const a = getIdx(t * 3), b = getIdx(t * 3 + 1), c = getIdx(t * 3 + 2);
+        const cx = (positions.getX(a) + positions.getX(b) + positions.getX(c)) / 3;
+        const cy = (positions.getY(a) + positions.getY(b) + positions.getY(c)) / 3;
+        const cz = (positions.getZ(a) + positions.getZ(b) + positions.getZ(c)) / 3;
+        const ix = Math.min(chunksX - 1, Math.max(0, Math.floor((cx + halfX) / cellW)));
+        const iy = Math.min(chunksY - 1, Math.max(0, Math.floor((cy + halfY) / cellH)));
+        const iz = Math.min(chunksZ - 1, Math.max(0, Math.floor((cz + halfZ) / cellD)));
+        const key = ix + "_" + iy + "_" + iz;
+        if (!chunks.has(key)) chunks.set(key, []);
+        chunks.get(key).push([a, b, c]);
+      }
+
+      const fragments = [];
+      // Use the in-plane (X+Y) scale, not full 3D, so the explosion speed
+      // reads correctly relative to the brick's visual footprint.
+      const speedScale = (size.x + size.y) / 2;
+
+      for (const tris of chunks.values()) {
+        let cX = 0, cY = 0, cZ = 0;
+        for (const [a, b, c] of tris) {
+          cX += (positions.getX(a) + positions.getX(b) + positions.getX(c)) / 3;
+          cY += (positions.getY(a) + positions.getY(b) + positions.getY(c)) / 3;
+          cZ += (positions.getZ(a) + positions.getZ(b) + positions.getZ(c)) / 3;
         }
-      }, []);
+        cX /= tris.length; cY /= tris.length; cZ /= tris.length;
+
+        // Recenter chunk vertices around the chunk centroid so spinning
+        // happens around the chunk's own middle, not the brick origin.
+        const posArr = [], uvArr = [], normArr = [];
+        for (const [a, b, c] of tris) {
+          for (const idx of [a, b, c]) {
+            posArr.push(
+              positions.getX(idx) - cX,
+              positions.getY(idx) - cY,
+              positions.getZ(idx) - cZ
+            );
+            if (uvs) uvArr.push(uvs.getX(idx), uvs.getY(idx));
+            if (normals) normArr.push(normals.getX(idx), normals.getY(idx), normals.getZ(idx));
+          }
+        }
+        const chunkGeom = new THREE.BufferGeometry();
+        chunkGeom.setAttribute("position", new THREE.Float32BufferAttribute(posArr, 3));
+        if (uvs) chunkGeom.setAttribute("uv", new THREE.Float32BufferAttribute(uvArr, 2));
+        if (normals) chunkGeom.setAttribute("normal", new THREE.Float32BufferAttribute(normArr, 3));
+
+        const chunkMesh = new THREE.Mesh(chunkGeom, sharedMaterial);
+        chunkMesh.position.set(cX, cY, cZ);
+        scene.add(chunkMesh);
+
+        // In-plane (X+Y) outward velocity. Light Y dampening + upward boost
+        // so shards arc up before falling, instead of immediately diving.
+        // Z velocity is small — keeps shards mostly on screen.
+        const inPlane = Math.sqrt(cX * cX + cY * cY) || 1;
+        const speed = speedScale * (0.9 + Math.random() * 0.7);
+        const velocity = new THREE.Vector3(
+          (cX / inPlane) * speed + (Math.random() - 0.5) * speedScale * 0.25,
+          (cY / inPlane) * speed * 0.55 + speedScale * (0.4 + Math.random() * 0.4),
+          (cZ >= 0 ? 1 : -1) * speedScale * (0.3 + Math.random() * 0.5)
+        );
+        const angularVelocity = new THREE.Vector3(
+          (Math.random() - 0.5) * 7,
+          (Math.random() - 0.5) * 7,
+          (Math.random() - 0.5) * 7
+        );
+
+        fragments.push({
+          mesh: chunkMesh,
+          velocity,
+          angularVelocity,
+          gravity: speedScale * 5.5,
+        });
+      }
+      return fragments;
+    }
+
+    // Aligns a 3D shatter to the focal brick's screen-space rect. Loads
+    // Brick.glb, fragments the geometry, animates fragments outward + falling,
+    // then calls onComplete. Falls back to onComplete on any failure.
+    function BrickExplosion3D({ brickX, brickY, brickWidth, brickHeight, onComplete }) {
+      const containerRef = useRef(null);
+      const onCompleteRef = useRef(onComplete);
+      onCompleteRef.current = onComplete;
+
+      // Canvas spans larger than the brick so fragments aren't immediately
+      // clipped on the way out. Asymmetric vertical room because gravity pulls
+      // the bottom shards further down than the top ones rise.
+      const padX = brickWidth * 0.6;
+      const padTop = brickHeight * 1.6;
+      const padBottom = brickHeight * 3.4;
+      const canvasW = brickWidth + padX * 2;
+      const canvasH = brickHeight + padTop + padBottom;
+      const canvasX = brickX - padX;
+      const canvasY = brickY - padTop;
+
+      useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        const THREE = window.THREE;
+        if (!THREE || !THREE.GLTFLoader) {
+          // Three.js never finished loading — fail forward so the cavity is still committed.
+          const t = window.setTimeout(() => onCompleteRef.current && onCompleteRef.current(), 200);
+          return () => window.clearTimeout(t);
+        }
+
+        let cancelled = false;
+        let frameId = 0;
+        let renderer = null;
+        let fragments = [];
+        let sharedMaterial = null;
+        let onCompleteFired = false;
+        const fireComplete = () => {
+          if (onCompleteFired) return;
+          onCompleteFired = true;
+          if (onCompleteRef.current) onCompleteRef.current();
+        };
+
+        try {
+          renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        } catch (e) {
+          // No WebGL context available.
+          const t = window.setTimeout(fireComplete, 200);
+          return () => window.clearTimeout(t);
+        }
+        renderer.setSize(canvasW, canvasH);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setClearColor(0x000000, 0);
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        // Heavy ambient + soft directional. The PNG focal brick reads as a
+        // mostly-flat texture, so we bias toward ambient to avoid a sudden
+        // "everything got darker" feeling on swap. Directional just gives
+        // tumbling shards a hint of shading variation.
+        scene.add(new THREE.AmbientLight(0xffffff, 0.95));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        dirLight.position.set(-0.8, 1.2, 2);
+        scene.add(dirLight);
+
+        // Orthographic camera — keeps the brick proportions identical to the
+        // 2D PNG so the swap from PNG → 3D is visually seamless.
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+        camera.position.set(0, 0, 5);
+
+        let startTime = 0;
+        let lastFrameTime = 0;
+        const STATIC_MS = 130;       // hold the intact brick before exploding
+        const TOTAL_MS = 1900;       // total animation duration
+        const FADE_START_MS = 1300;  // start fading out at this point
+
+        loadBrickGlb()
+          .then((gltf) => {
+            if (cancelled) return;
+            const brickMesh = findFirstMesh(gltf.scene);
+            if (!brickMesh) { fireComplete(); return; }
+
+            // Bake world transforms into the geometry, recenter on origin so
+            // radial-explosion math works, then auto-orient.
+            gltf.scene.updateMatrixWorld(true);
+            const geom = brickMesh.geometry.clone();
+            geom.applyMatrix4(brickMesh.matrixWorld);
+            geom.computeBoundingBox();
+            const center = geom.boundingBox.getCenter(new THREE.Vector3());
+            geom.translate(-center.x, -center.y, -center.z);
+            let size = orientBrickGeometry(geom);
+
+            // Non-uniform scale to force the GLB's X/Y aspect to match the
+            // focal brick's rect EXACTLY. Without this, a GLB whose intrinsic
+            // aspect differs from the PNG's will render at the wrong height
+            // — which is what made the swap look broken.
+            const targetAspect = brickWidth / brickHeight;
+            const currentAspect = size.x / size.y;
+            if (Math.abs(currentAspect - targetAspect) > 0.02) {
+              const scaleY = currentAspect / targetAspect;
+              geom.scale(1, scaleY, 1);
+              geom.computeBoundingBox();
+              size = geom.boundingBox.getSize(new THREE.Vector3());
+            }
+
+            // Camera ortho frustum: solve so brick3D.width spans exactly
+            // `brickWidth` pixels of the canvas, and the brick's center sits
+            // at the focal-brick rect's center within the canvas (NOT the
+            // canvas center — vertical padding is asymmetric to give shards
+            // room to fall under gravity).
+            //
+            // Derivation: in Three.js ortho, world Y=0 renders at
+            //   canvasY = camera.top / orthoH × canvasH
+            // so camera.top = (brickCenterY_inCanvas / canvasH) × orthoH.
+            // Earlier code had this with the wrong sign, which placed the 3D
+            // brick BELOW the focal-brick rect instead of on top of it.
+            const orthoW = size.x * (canvasW / brickWidth);
+            const orthoH = orthoW * (canvasH / canvasW);
+            const brickCenterY_inCanvas = padTop + brickHeight / 2;
+            camera.left = -orthoW / 2;
+            camera.right = orthoW / 2;
+            camera.top = (brickCenterY_inCanvas / canvasH) * orthoH;
+            camera.bottom = camera.top - orthoH;
+            camera.updateProjectionMatrix();
+
+            // Share one material across all fragments — opacity fade is a
+            // single property write instead of N writes per frame. Cloning
+            // shares the texture references so disposal here doesn't break
+            // the cached GLB.
+            sharedMaterial = brickMesh.material.clone();
+            sharedMaterial.transparent = true;
+            sharedMaterial.side = THREE.DoubleSide;
+            sharedMaterial.depthWrite = true;
+
+            // 5 × 3 × 1 = 15 chunky slabs. Z=1 means each chunk has full
+            // brick depth — reads as a 3D block instead of a thin sliver as
+            // it tumbles.
+            fragments = fragmentBrickMesh(geom, sharedMaterial, scene, size, 5, 3, 1);
+
+            // Render the static brick once so the "intact 3D brick" frame
+            // shows up before motion begins — masks the PNG → 3D swap.
+            renderer.render(scene, camera);
+
+            startTime = performance.now();
+            lastFrameTime = startTime;
+            frameId = requestAnimationFrame(animate);
+          })
+          .catch((err) => {
+            console.warn("Brick.glb load failed", err);
+            fireComplete();
+          });
+
+        function animate() {
+          if (cancelled) return;
+          const now = performance.now();
+          const elapsed = now - startTime;
+          // Real frame delta, capped to avoid huge jumps if a frame stalls
+          // (tab switch, GC pause, etc.) — clipping at ~30fps minimum.
+          const dt = Math.min(0.033, (now - lastFrameTime) / 1000);
+          lastFrameTime = now;
+
+          // Static phase: hold the intact 3D brick still for a few frames so
+          // the PNG → 3D handoff doesn't visually jump. Then start motion.
+          if (elapsed > STATIC_MS) {
+            for (const f of fragments) {
+              f.mesh.position.x += f.velocity.x * dt;
+              f.mesh.position.y += f.velocity.y * dt;
+              f.mesh.position.z += f.velocity.z * dt;
+              f.velocity.y -= f.gravity * dt;
+              f.mesh.rotation.x += f.angularVelocity.x * dt;
+              f.mesh.rotation.y += f.angularVelocity.y * dt;
+              f.mesh.rotation.z += f.angularVelocity.z * dt;
+            }
+          }
+
+          if (sharedMaterial && elapsed > FADE_START_MS) {
+            const t = Math.min(1, (elapsed - FADE_START_MS) / (TOTAL_MS - FADE_START_MS));
+            sharedMaterial.opacity = 1 - t;
+          }
+
+          renderer.render(scene, camera);
+
+          if (elapsed < TOTAL_MS) {
+            frameId = requestAnimationFrame(animate);
+          } else {
+            fireComplete();
+          }
+        }
+
+        return () => {
+          cancelled = true;
+          if (frameId) cancelAnimationFrame(frameId);
+          // Dispose every chunk geometry — these were freshly allocated.
+          for (const f of fragments) {
+            if (f.mesh.geometry) f.mesh.geometry.dispose();
+          }
+          // Dispose the cloned material (textures stay alive via the cached GLB).
+          if (sharedMaterial) sharedMaterial.dispose();
+          if (renderer) {
+            renderer.dispose();
+            // Browsers cap concurrent WebGL contexts (~8-16). Explicitly
+            // releasing the context here means repeated explosions don't
+            // hit that ceiling.
+            try { renderer.forceContextLoss(); } catch (e) { }
+            if (renderer.domElement && renderer.domElement.parentNode) {
+              renderer.domElement.parentNode.removeChild(renderer.domElement);
+            }
+          }
+        };
+      }, [brickX, brickY, brickWidth, brickHeight, canvasW, canvasH, canvasX, canvasY]);
+
       return (
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          preload="auto"
-          onEnded={onEnded}
+        <div
+          ref={containerRef}
           style={{
             position: "absolute",
-            left: x, top: y,
-            width, height,
-            zIndex: 75,
+            left: canvasX, top: canvasY,
+            width: canvasW, height: canvasH,
             pointerEvents: "none",
-            objectFit: "fill",
+            zIndex: 75,
           }}
-        >
-          <source src={src} type="video/webm" />
-        </video>
+        />
       );
     }
 
@@ -1148,28 +1496,28 @@
           isUserBrick: true,
         };
         if (enableShatter && !prefersReducedMotion) {
-          // Center the brick-blast video on the focal brick. The video is 16:9
-          // (not the brick's 3.15:1), so we size the playback rect at 16:9 —
-          // width matches the focal brick, height extends above/below to keep
-          // the video's true aspect. Anything else squashes the y-axis.
+          // Use the EXACT focal-brick rect so the 3D explosion lands pixel-
+          // aligned on top of the PNG focal brick — no visual jump on swap.
+          // BrickExplosion3D pads its own canvas around this rect so shards
+          // have room to fly outward.
           const isMobile = viewport.w < 768;
           const focalW = isMobile
             ? Math.min(viewport.w - 64, brickWidth * 2.4)
             : Math.min(viewport.w * 0.7, 1100);
+          const focalH = focalW / (brickWidth / brickHeight);
           const focalCenterX = viewport.w / 2;
           const focalCenterY = isMobile ? viewport.h * 0.22 : viewport.h * 0.32;
-          const videoW = focalW * 1.25;
-          const videoH = videoW * 9 / 16;
           setShatter({
-            x: focalCenterX - videoW / 2,
-            y: focalCenterY - videoH / 2,
-            width: videoW,
-            height: videoH,
+            brickX: focalCenterX - focalW / 2,
+            brickY: focalCenterY - focalH / 2,
+            brickWidth: focalW,
+            brickHeight: focalH,
             cavity: newCavity,
           });
           setShaking(true);
           window.setTimeout(() => setShaking(false), 280);
-          // Safety fallback if `onended` never fires (autoplay blocked, decode error, etc).
+          // Safety fallback if the GLB load / WebGL init fails — still commit
+          // the cavity so the user isn't stranded.
           window.setTimeout(() => {
             setShatter((s) => {
               if (!s) return null;
@@ -1290,7 +1638,9 @@
             </span>
           </header>
 
-          {/* Bottom-left: CTA card (sizing & rounded background from Figma 834:185) */}
+          {/* Bottom-left: CTA card (sizing & rounded background from Figma 834:185).
+              Height is intentionally auto — the subtitle is two lines, and locking
+              a fixed height made `"story."` dangle below the box. */}
           <div
             onPointerDown={(e) => e.stopPropagation()}
             onClick={onCtaClick}
@@ -1298,8 +1648,7 @@
               position: "absolute",
               bottom: 32, left: 32,
               width: 383,
-              height: 113,
-              padding: "27px 25px 28px 25px",
+              padding: "24px 25px 26px 25px",
               boxSizing: "border-box",
               background: "rgba(3,3,3,0.6)",
               borderRadius: 14.6,
@@ -1317,7 +1666,10 @@
               fontWeight: 400,
               color: "#ffffff",
               letterSpacing: -1.87,
-              lineHeight: "24.94px",
+              // Line-height was 24.94 (smaller than font size) — clipped descenders
+              // like the y in "your" / "brick". 1.05 keeps the title compact while
+              // giving the y-tail enough room.
+              lineHeight: 1.05,
               display: "flex",
               alignItems: "center",
               gap: 6,
@@ -1335,11 +1687,15 @@
               fontSize: 18,
               fontWeight: 400,
               color: "#9a9a9a",
-              marginTop: 14,
+              marginTop: 12,
               letterSpacing: -0.54,
-              lineHeight: "normal",
+              lineHeight: 1.35,
             }}>
-              Beaten your odds and built? Share your story.
+              {/* Explicit line break at the question mark — keeps both lines balanced
+                  ("Beaten your odds and built?" / "Share your story.") instead of
+                  letting `"story."` orphan to its own line. */}
+              Beaten your odds and built?<br />
+              Share your story.
             </div>
           </div>
 
@@ -1368,11 +1724,10 @@
 
           <AnimatePresence>
             {shatter && (
-              <BrickBreakVideo key="brick-break-video"
-                x={shatter.x} y={shatter.y}
-                width={shatter.width} height={shatter.height}
-                src="./BrickBlast2.webm"
-                onEnded={() => {
+              <BrickExplosion3D key="brick-explosion-3d"
+                brickX={shatter.brickX} brickY={shatter.brickY}
+                brickWidth={shatter.brickWidth} brickHeight={shatter.brickHeight}
+                onComplete={() => {
                   setShatter((s) => {
                     if (!s) return null;
                     setUserCavities((prev) => [...prev, s.cavity]);

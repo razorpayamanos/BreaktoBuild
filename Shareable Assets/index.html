@@ -711,9 +711,18 @@
     .modal[data-stage="result"] {
       grid-template-columns: 1fr var(--result-preview-w);
     }
-    .modal[data-stage="result"] .preview-pane { background: var(--bg-card); }
-    .modal[data-stage="result"] .preview-inner { display: none; }
-    .modal[data-stage="result"] .preview-result { display: flex; }
+
+    .modal[data-stage="result"] .preview-pane {
+      background: var(--bg-card);
+    }
+
+    .modal[data-stage="result"] .preview-inner {
+      display: none;
+    }
+
+    .modal[data-stage="result"] .preview-result {
+      display: flex;
+    }
 
     /* ============================================================
      RESPONSIVE
@@ -874,12 +883,12 @@
         <!-- Stage 4: Result (left column — heading, description, CTAs) -->
         <div class="stage stage-result" data-stage="result">
           <h2 class="heading-display result-heading" id="result-heading">A Piece of the Odds.<br />Broken.</h2>
-          <p class="result-desc" id="result-desc">This marks your place among the people who built despite the odds, and built forward for India.</p>
+          <p class="result-desc" id="result-desc">This marks your place among the people who built despite the odds, and
+            built forward for India.</p>
           <div class="result-actions">
             <button type="button" class="btn-share" id="result-share">Share and Inspire Others</button>
             <div class="result-extras">
               <button type="button" id="result-download">Download</button>
-              <button type="button" id="result-restart">Make another</button>
             </div>
           </div>
         </div>
@@ -968,11 +977,13 @@
       // text sits on its upper-middle portion.
       // To nudge horizontally: ↑ x moves text RIGHT, ↓ x moves LEFT.
       // To nudge vertically:   ↑ y moves text DOWN,  ↓ y moves UP.
-      textAnchor: { x: 0.42, y: 0.62 },
-      // Text bounding box, as a fraction of frame (auto-fit shrinks the
-      // font until lines fit inside this box).
-      textMaxWidth: 0.28,
-      textMaxHeight: 0.18,
+      textAnchor: { x: 0.45, y: 0.62 },
+      // Text bounding box, as a fraction of frame.
+      // The font auto-shrinks until ALL lines fit inside this box —
+      // so REDUCING these values is how you scale text DOWN, and
+      // increasing them lets text grow LARGER.
+      textMaxWidth: 0.22,
+      textMaxHeight: 0.14,
       // Type
       fontFamily: "'Special Gothic Condensed One', 'Anton', sans-serif",
       fontWeight: 400,
@@ -2073,7 +2084,6 @@
     const resultMediaWrap = $('#preview-result');
     const resultDownload = $('#result-download');
     const resultShare = $('#result-share');
-    const resultRestart = $('#result-restart');
     const loadingText = $('#loading-text');
     const loadingDetail = $('#loading-detail');
     let currentResult = null;
@@ -2175,16 +2185,6 @@
         document.body.appendChild(a); a.click(); a.remove();
         alert('Share API unavailable here — file downloaded instead.');
       }
-    });
-
-    resultRestart.addEventListener('click', () => {
-      form.reset();
-      selectedPersona = null;
-      $$('.persona-thumb').forEach(b => { b.classList.remove('is-selected'); b.setAttribute('aria-checked', 'false'); b.tabIndex = -1; });
-      if (personaGrid.firstElementChild) personaGrid.firstElementChild.tabIndex = 0;
-      personaNext.disabled = true;
-      updatePreviewText();
-      setStage('persona');
     });
 
     function makeFilename(ext) {
