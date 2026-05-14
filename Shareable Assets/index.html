@@ -977,20 +977,22 @@
       // text sits on its upper-middle portion.
       // To nudge horizontally: ↑ x moves text RIGHT, ↓ x moves LEFT.
       // To nudge vertically:   ↑ y moves text DOWN,  ↓ y moves UP.
-      textAnchor: { x: 0.45, y: 0.62 },
-      // Text bounding box, as a fraction of frame.
-      // The font auto-shrinks until ALL lines fit inside this box —
-      // so REDUCING these values is how you scale text DOWN, and
-      // increasing them lets text grow LARGER.
-      // (These define INNER padding from the slab edge: smaller box
-      // = more padding between text and the clipPolygon.)
-      textMaxWidth: 0.22,
-      textMaxHeight: 0.18,
+      // === Coordinates pulled from Figma node 2518:129 (the
+      //     "TextBox" layer the designer marked as the safe text
+      //     area inside the slab). The inner text wrapper that
+      //     actually holds the glyphs sits at (338, 704) size
+      //     197×211 inside a 1080×1350 canvas — those are the
+      //     bounds we wrap against. After the rotation + skew
+      //     below, the rendered visual fans out into the
+      //     TextBox parallelogram (243×257 at 321.36,699.9). ===
+      textAnchor: { x: 0.4242, y: 0.6296 }, // wrapper centre: (338+197/2, 704+211/2) / (1080, 1350)
+      textMaxWidth: 0.1824,                    // 197 / 1080
+      textMaxHeight: 0.1563,                    // 211 / 1350
       // Lowest font size (px) the auto-fit will accept before
       // overflowing the box. Prevents long text from shrinking
       // to an unreadable size — but anything bigger than this
       // box at min font will spill past `textMaxHeight`.
-      minFontSize: 38,
+      minFontSize: 32,
       // Type
       fontFamily: "'Special Gothic Condensed One', 'Anton', sans-serif",
       fontWeight: 400,
@@ -1003,6 +1005,12 @@
       lineHeight: 0.8,                                 // figma: leading-[0.8]
       letterSpacing: -0.02,                               // em — figma: tracking-[-0.4331px] @ 21.654px
       textAlign: 'left',                              // 'left' | 'center' | 'right'
+      // Hyphenation — if a single word is >= this many characters, the
+      // wrapper splits it in half with a trailing hyphen and pushes the
+      // remainder to the next line. Prevents long words like
+      // "COMPLETELY" from punching past the slab safe area.
+      // Set to 0 / Infinity to disable.
+      hyphenateMinLength: 8,
       compositeMode: 'overlay',                           // figma: mix-blend-overlay
       opacity: 0.8,                                       // 0–1 — applied AFTER the overlay blend; lowers the engraving's strength
       // Embossment — DISABLED. The carved look now comes from
@@ -1029,20 +1037,19 @@
         blur: 9,
         color: 'rgba(0,0,0,0.95)',
       },
-      // Fake-perspective transform on the text block — these are
-      // tuned to follow Persona2.mp4's actual slab face:
-      // the slab's top edge slopes ~6° clockwise (TR sits lower than
-      // TL), so we ROTATE the text clockwise by the same amount,
-      // then add a small skewX so the verticals follow the slab's
-      // slight inward lean.
-      skewX: 10,
+      // Perspective transform — copied straight from the Figma
+      // text wrapper inside the TextBox layer (node 2265:429).
+      // Together they fan the text out to follow the slab face's
+      // actual 3D angle.
+      skewX: 8,                              // figma: skew-x-8
       skewY: 0,
-      rotation: -10,
-      // Polygon clipping the text to the slab's visible front face.
-      // Each point is [xFraction, yFraction] of the video frame.
-      // Tuned for Persona2.mp4 frame 0 — refine via ?debug=1.
-      //                top-L         top-R         bot-R         bot-L
-      clipPolygon: [[0.13, 0.46], [0.56, 0.50], [0.55, 0.92], [0.12, 0.93]],
+      rotation: -2.53,                          // figma: rotate(-2.53deg)
+      // Hard clip = the TextBox bounding rect (node 2518:129).
+      // Anything that would otherwise spill past the slab's safe
+      // area is hard-clipped here as a last-line-of-defense (the
+      // wrapAndFit fitter keeps us in bounds before we ever hit it).
+      //                top-L            top-R            bot-R            bot-L
+      clipPolygon: [[0.2976, 0.5184], [0.5226, 0.5184], [0.5226, 0.7087], [0.2976, 0.7087]],
     };
 
     /**
@@ -1540,6 +1547,7 @@
         C.textAnchor, C.textMaxWidth, C.textMaxHeight, C.minFontSize,
         C.clipPolygon, C.skewX, C.skewY, C.rotation,
         C.lineHeight, C.letterSpacing, C.textAlign,
+        C.hyphenateMinLength,
         C.noise, C.innerShadow,
       ]);
       if (_slabLayerCache.key === key && _slabLayerCache.canvas) return _slabLayerCache.canvas;
@@ -1591,6 +1599,7 @@
         lineHeight: C.lineHeight,
         letterSpacing: C.letterSpacing,
         minFontSize: C.minFontSize ?? 30,
+        hyphenateMinLength: C.hyphenateMinLength ?? Infinity,
         rotation: C.rotation,
         skewX: C.skewX,
         skewY: C.skewY,
@@ -1691,15 +1700,33 @@
      * Standard text-flow algorithm — produces minimum-line-count
      * wraps for whatever font size we're testing.
      */
-    function wrapGreedy(text, ctx, maxWidth) {
-      const words = (text || '').split(/\s+/).filter(Boolean);
-      if (words.length === 0) return [text || ''];
+    function wrapGreedy(text, ctx, maxWidth, hyphenateAt = Infinity) {
+      const rawWords = (text || '').split(/\s+/).filter(Boolean);
+      if (rawWords.length === 0) return [text || ''];
+
+      // Hyphenation pass: any word with >= hyphenateAt characters is
+      // split into two pieces at the midpoint. The first piece carries
+      // a trailing "-" and is flagged `forceBreakAfter` so the greedy
+      // pass below ends the line on it — guaranteeing the remainder
+      // lands on the next line (per the design rule).
+      const tokens = [];
+      for (const w of rawWords) {
+        if (w.length >= hyphenateAt) {
+          const splitAt = Math.ceil(w.length / 2);
+          tokens.push({ word: w.slice(0, splitAt) + '-', forceBreakAfter: true });
+          tokens.push({ word: w.slice(splitAt),          forceBreakAfter: false });
+        } else {
+          tokens.push({ word: w, forceBreakAfter: false });
+        }
+      }
+
       const lines = [];
       let cur = '';
-      for (const w of words) {
-        const tryLine = cur ? cur + ' ' + w : w;
+      for (const t of tokens) {
+        const tryLine = cur ? cur + ' ' + t.word : t.word;
         if (ctx.measureText(tryLine).width <= maxWidth) cur = tryLine;
-        else { if (cur) lines.push(cur); cur = w; }
+        else { if (cur) lines.push(cur); cur = t.word; }
+        if (t.forceBreakAfter) { lines.push(cur); cur = ''; }
       }
       if (cur) lines.push(cur);
       return lines.length ? lines : [text];
@@ -1719,54 +1746,21 @@
       const {
         fontFamily, fontWeight, maxWidth, maxHeight,
         lineHeight, letterSpacing,
-        rotation = 0, skewX = 0, skewY = 0,
-        textAlign = 'left',
+        // rotation/skewX/skewY/textAlign are accepted for API
+        // compatibility but no longer drive the fit math.
+        // Reason: the Figma design constrains the UNTRANSFORMED
+        // text wrapper (197×211) and lets the rotation + skew fan
+        // the visual into the larger surrounding TextBox
+        // parallelogram. Checking the transformed AABB against the
+        // small wrapper was making the binary search shrink the
+        // font dramatically for any non-trivial transform — which
+        // is the opposite of what Figma actually renders.
+        // The hard clip polygon (= TextBox bounds) catches anything
+        // that would otherwise leak past the safe area.
         minFontSize = 30,
-        maxFontSize = 240,
+        maxFontSize = 70,
+        hyphenateMinLength = Infinity,
       } = opts;
-
-      // Pre-compute transform constants once.
-      const r = rotation * Math.PI / 180;
-      const cos = Math.cos(r), sin = Math.sin(r);
-      const tanSX = Math.tan(skewX * Math.PI / 180);
-      const tanSY = Math.tan(skewY * Math.PI / 180);
-      const halfMaxW = maxWidth / 2;
-      const halfMaxH = maxHeight / 2;
-
-      /**
-       * Given the rendered rectangle's untransformed width and height,
-       * compute the visual axis-aligned bbox AFTER skew + rotation.
-       * Returns true if the visual extents stay inside the (maxWidth
-       * × maxHeight) box centered at the anchor.
-       */
-      function visualFits(widest, totalH) {
-        // Rectangle anchor — depends on text alignment.
-        let rectLeft;
-        if (textAlign === 'left')       rectLeft = -halfMaxW;
-        else if (textAlign === 'right') rectLeft =  halfMaxW - widest;
-        else                            rectLeft = -widest / 2;
-        const rectRight = rectLeft + widest;
-        const rectTop = -totalH / 2;
-        const rectBottom = totalH / 2;
-        const corners = [
-          [rectLeft, rectTop], [rectRight, rectTop],
-          [rectRight, rectBottom], [rectLeft, rectBottom],
-        ];
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        for (const [cx, cy] of corners) {
-          // Apply skew then rotation, same order as ctx.transform usage.
-          const sx = cx + cy * tanSX;
-          const sy = cx * tanSY + cy;
-          const rx = sx * cos - sy * sin;
-          const ry = sx * sin + sy * cos;
-          if (rx < minX) minX = rx;
-          if (rx > maxX) maxX = rx;
-          if (ry < minY) minY = ry;
-          if (ry > maxY) maxY = ry;
-        }
-        return minX >= -halfMaxW && maxX <= halfMaxW &&
-               minY >= -halfMaxH && maxY <= halfMaxH;
-      }
 
       let lo = minFontSize, hi = maxFontSize;
       let best = null;
@@ -1774,10 +1768,10 @@
         const mid = Math.floor((lo + hi) / 2);
         ctx.font = `${fontWeight} ${mid}px ${fontFamily}`;
         if ('letterSpacing' in ctx) ctx.letterSpacing = `${letterSpacing * mid}px`;
-        const lines = wrapGreedy(text, ctx, maxWidth);
+        const lines = wrapGreedy(text, ctx, maxWidth, hyphenateMinLength);
         const widest = Math.max(...lines.map(l => ctx.measureText(l).width));
         const totalH = lines.length * lineHeight * mid;
-        if (visualFits(widest, totalH)) {
+        if (widest <= maxWidth && totalH <= maxHeight) {
           best = { fontSize: mid, lines };
           lo = mid + 1;
         } else {
@@ -1787,9 +1781,10 @@
 
       if (best) return best;
       // Floor: render at minFontSize even if it overflows the box.
+      // The clip polygon catches any spill past the slab safe area.
       ctx.font = `${fontWeight} ${minFontSize}px ${fontFamily}`;
       if ('letterSpacing' in ctx) ctx.letterSpacing = `${letterSpacing * minFontSize}px`;
-      return { fontSize: minFontSize, lines: wrapGreedy(text, ctx, maxWidth) };
+      return { fontSize: minFontSize, lines: wrapGreedy(text, ctx, maxWidth, hyphenateMinLength) };
     }
 
     /**
