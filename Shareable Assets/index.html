@@ -264,78 +264,329 @@
       display: flex;
     }
 
-    /* Persona picker */
-    .persona-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin: 8px 0 28px;
-      flex: 1;
-      align-content: center;
+    /* ============================================================
+       Avatar workflow — two-step picker (replaces old persona grid)
+       ============================================================ */
+
+    .stage-avatar {
+      gap: 22px;
+      position: relative;
     }
 
-    .persona-thumb {
+    .picker-step {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .step-eyebrow {
+      display: inline-block;
+      align-self: flex-start;
+      font-family: var(--font-body);
+      font-weight: 500;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: #666;
+      background: #eef0f3;
+      padding: 5px 10px;
+      text-transform: uppercase;
+      border-radius: 2px;
+    }
+
+    .step-title {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: clamp(26px, 3.2vw, 36px);
+      line-height: 1.0;
+      letter-spacing: 0.005em;
+      text-transform: uppercase;
+      color: var(--text-on-light);
+      margin: 4px 0 10px;
+    }
+
+    .avatar-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .avatar-thumb {
       position: relative;
-      aspect-ratio: 171/256;
-      background: #f3f3f3;
+      aspect-ratio: 1/1;
+      background: #0a0a0a;
       overflow: hidden;
       padding: 0;
-      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
+      border: none;
+      cursor: pointer;
+      transition: outline-color .15s ease;
       outline: 2px solid transparent;
       outline-offset: -2px;
+      display: block;
     }
 
-    .persona-thumb img {
+    .avatar-thumb img {
       width: 100%;
       height: 100%;
-      object-fit: contain;
-      object-position: bottom center;
-      transition: transform .25s ease;
+      object-fit: cover;
+      object-position: center top;
+      display: block;
       pointer-events: none;
     }
 
-    .persona-thumb:hover img {
-      transform: scale(1.03);
-    }
+    .avatar-thumb.is-selected { outline-color: var(--accent); }
 
-    .persona-thumb.is-selected {
-      background: #eef0ff;
-      outline-color: var(--accent);
-    }
-
-    .persona-thumb .check {
+    .avatar-thumb .check,
+    .weapon-thumb .check {
       position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 22px;
-      height: 22px;
+      top: 6px;
+      right: 6px;
+      width: 20px;
+      height: 20px;
       background: var(--accent);
       color: #fff;
-      border-radius: 999px;
       display: none;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      z-index: 2;
     }
 
-    .persona-thumb.is-selected .check {
-      display: flex;
+    .avatar-thumb.is-selected .check,
+    .weapon-thumb.is-selected .check { display: flex; }
+
+    .weapon-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      transition: opacity .2s ease;
     }
 
-    .persona-label {
+    .weapon-grid.is-locked {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .weapon-thumb {
+      position: relative;
+      aspect-ratio: 1/1;
+      background: #0a0a0a;
+      overflow: hidden;
+      padding: 0;
+      border: none;
+      cursor: pointer;
+      transition: outline-color .15s ease;
+      outline: 2px solid transparent;
+      outline-offset: -2px;
+      display: block;
+    }
+
+    .weapon-thumb img {
       position: absolute;
-      bottom: 6px;
-      left: 6px;
+      top: 8%;
+      left: 12%;
+      width: 76%;
+      height: 64%;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+    }
+
+    .weapon-thumb.is-selected { outline-color: var(--accent); }
+
+    .weapon-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
       font-family: var(--font-body);
-      font-size: 11px;
-      color: #000;
-      background: rgba(255, 255, 255, 0.85);
-      padding: 2px 6px;
+      font-weight: 600;
+      font-size: 10px;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 5px 8px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.08em;
+      transition: background .15s ease;
+    }
+
+    .weapon-thumb.is-selected .weapon-label {
+      background: var(--accent);
+    }
+
+    /* Vertical decorative labels on the modal's left/right edges */
+    .vert-side-label {
+      position: absolute;
+      font-family: var(--font-body);
+      font-weight: 500;
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      color: #b9bcc2;
+      text-transform: uppercase;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .vert-side-label--left {
+      left: -8px;
+      top: 50%;
+      transform: translate(-100%, -50%) rotate(-90deg);
+      transform-origin: right center;
+    }
+
+    .vert-side-label--right {
+      right: -8px;
+      top: 50%;
+      transform: translate(100%, -50%) rotate(90deg);
+      transform-origin: left center;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    /* ============================================================
+       Avatar preview pane (right column, persona stage only)
+       ============================================================ */
+
+    .preview-avatar {
+      position: absolute;
+      inset: 0;
+      display: none;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .modal[data-stage="persona"] .preview-avatar { display: block; }
+    .modal[data-stage="persona"] .preview-inner { display: none; }
+
+    .preview-avatar-watermark {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 0 16px;
+      pointer-events: none;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    .preview-avatar-watermark span {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: clamp(48px, 7.2vw, 86px);
+      line-height: 0.95;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.045);
+      white-space: nowrap;
+    }
+
+    .preview-avatar-asset {
+      position: absolute;
+      top: 4%;
+      left: 50%;
+      transform: translateX(-50%);
+      height: 88%;
+      max-width: 95%;
+      object-fit: contain;
+      object-position: bottom center;
+      z-index: 2;
+    }
+
+    .preview-avatar-asset:not([src]),
+    .preview-avatar-asset[src=""] {
+      display: none;
+    }
+
+    .preview-avatar-eyebrow {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      font-family: var(--font-body);
+      font-weight: 500;
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      color: #fff;
+      background: var(--accent);
+      padding: 4px 9px;
+      text-transform: uppercase;
+      z-index: 4;
+    }
+
+    .preview-avatar-ticker {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 38px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      z-index: 3;
+    }
+
+    .preview-avatar-ticker-track {
+      display: flex;
+      gap: 18px;
+      white-space: nowrap;
+      animation: ticker-scroll 18s linear infinite;
+      font-family: var(--font-body);
+      font-weight: 500;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: rgba(255, 255, 255, 0.55);
+      text-transform: uppercase;
+      padding-left: 18px;
+    }
+
+    @keyframes ticker-scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    .picker-next {
+      position: absolute;
+      right: 14px;
+      bottom: 52px;
+      z-index: 5;
+      font-family: var(--font-body);
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #fff;
+      background: var(--accent);
+      border: none;
+      padding: 14px 30px;
+      cursor: pointer;
+      transition: opacity .15s ease, transform .12s ease;
+    }
+
+    .picker-next:hover:not(:disabled) { transform: translateY(-1px); }
+    .picker-next:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ============================================================
+       Glitch reveal — bottom-to-top scanline-ish wipe, fired on
+       every avatar/weapon change. Uses `steps()` to give the
+       progress a chunky/glitchy character rather than smooth.
+       ============================================================ */
+    @keyframes glitch-reveal {
+      0%   { clip-path: inset(100% 0 0 0); filter: hue-rotate(180deg) saturate(1.6) contrast(1.2); transform: translate3d(-50%, 0, 0) translateX(-5px); }
+      12%  { clip-path: inset(86% 0 0 0); filter: hue-rotate(140deg); transform: translate3d(-50%, 0, 0) translateX(4px); }
+      24%  { clip-path: inset(72% 0 0 0); filter: hue-rotate(80deg) saturate(1.3); transform: translate3d(-50%, 0, 0) translateX(-3px); }
+      38%  { clip-path: inset(56% 0 0 0); filter: hue-rotate(30deg); transform: translate3d(-50%, 0, 0) translateX(2px); }
+      52%  { clip-path: inset(40% 0 0 0); filter: none; transform: translate3d(-50%, 0, 0) translateX(-2px); }
+      68%  { clip-path: inset(22% 0 0 0); transform: translate3d(-50%, 0, 0) translateX(1px); }
+      84%  { clip-path: inset(8% 0 0 0); transform: translate3d(-50%, 0, 0) translateX(-1px); }
+      100% { clip-path: inset(0 0 0 0); filter: none; transform: translate3d(-50%, 0, 0); }
+    }
+
+    .preview-avatar-asset.glitch-in {
+      animation: glitch-reveal 0.55s steps(11, end) both;
     }
 
     /* Form */
@@ -743,10 +994,17 @@
         display: none;
       }
 
-      .persona-grid {
+      .avatar-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        gap: 8px;
       }
+
+      .weapon-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+      }
+
+      .vert-side-label { display: none; }
 
       .heading-display {
         font-size: 30px;
@@ -821,13 +1079,21 @@
 
       <section class="modal-content" id="modal-content">
 
-        <!-- Stage 1: Persona picker -->
-        <div class="stage stage-persona is-active" data-stage="persona">
-          <h2 id="modal-heading" class="heading-display">Pick your persona<br />to build your mark</h2>
-          <div class="persona-grid" id="persona-grid" role="radiogroup" aria-label="Choose your persona"></div>
-          <div>
-            <button type="button" class="btn-primary" id="persona-next" disabled>Next</button>
-          </div>
+        <!-- Stage 1: Avatar + Weapon picker (two-step) -->
+        <div class="stage stage-avatar is-active" data-stage="persona">
+          <span class="vert-side-label vert-side-label--left" aria-hidden="true">CLAIM YOUR MARK</span>
+
+          <section class="picker-step" data-step="avatar">
+            <span class="step-eyebrow">Step 01</span>
+            <h2 id="modal-heading" class="step-title">Pick your avatar</h2>
+            <div class="avatar-grid" id="avatar-grid" role="radiogroup" aria-label="Pick your avatar"></div>
+          </section>
+
+          <section class="picker-step" data-step="weapon">
+            <span class="step-eyebrow">Step 02</span>
+            <h2 class="step-title">Choose your weapon</h2>
+            <div class="weapon-grid is-locked" id="weapon-grid" role="radiogroup" aria-label="Choose your weapon" aria-disabled="true"></div>
+          </section>
         </div>
 
         <!-- Stage 2: Form -->
@@ -895,9 +1161,40 @@
 
       </section>
 
-      <!-- Preview pane (right column) — live brick preview during
-           persona/form stages, generated video during result stage. -->
+      <!-- Preview pane (right column) — three views, toggled by stage:
+           1. .preview-avatar  → avatar workflow (idle/combo static, glitch-in)
+           2. .preview-inner   → live brick preview during form/loading
+           3. .preview-result  → generated video during result stage -->
       <aside class="preview-pane" aria-hidden="true">
+        <!-- Avatar workflow view -->
+        <div class="preview-avatar" id="preview-avatar">
+          <div class="preview-avatar-watermark" aria-hidden="true">
+            <span>BRACE TO BREAK</span>
+            <span>BRACE TO BREAK</span>
+            <span>BRACE TO BREAK</span>
+            <span>BRACE TO BREAK</span>
+            <span>BRACE TO BREAK</span>
+            <span>BRACE TO BREAK</span>
+            <span>BRACE TO BREAK</span>
+            <span>BRACE TO BREAK</span>
+          </div>
+          <img class="preview-avatar-asset" id="preview-avatar-asset" alt="" />
+          <span class="preview-avatar-eyebrow">Preview</span>
+          <span class="vert-side-label vert-side-label--right" aria-hidden="true">BREAK TO BUILD</span>
+          <div class="preview-avatar-ticker" aria-hidden="true">
+            <div class="preview-avatar-ticker-track">
+              <span>BREAK TO BUILD</span><span>·</span>
+              <span>BREAK TO BUILD</span><span>·</span>
+              <span>BREAK TO BUILD</span><span>·</span>
+              <span>BREAK TO BUILD</span><span>·</span>
+              <span>BREAK TO BUILD</span><span>·</span>
+              <span>BREAK TO BUILD</span><span>·</span>
+            </div>
+          </div>
+          <button type="button" class="picker-next" id="picker-next" disabled>NEXT</button>
+        </div>
+
+        <!-- Live brick preview (form/loading stages) -->
         <div class="preview-inner">
           <p class="preview-prefix">thank you</p>
           <h3 class="preview-name" id="preview-name">YOUR NAME<br />HERE</h3>
@@ -905,6 +1202,8 @@
           <img class="preview-base is-empty" id="preview-base" alt="" />
           <span class="preview-label">Preview</span>
         </div>
+
+        <!-- Result video (result stage) -->
         <div class="preview-result" id="preview-result"></div>
       </aside>
 
@@ -929,24 +1228,77 @@
     const FINAL_HEIGHT = 1350;
 
     /**
-     * Map each persona to its source video + thumbnail.
-     *   - baseVideo:     path to the persona's MP4 (1080×1350 expected)
-     *   - textCutFrame:  the frame at which the slab shatters; we draw
-     *                    the engraved odds text on every frame BEFORE
-     *                    this and nothing on frames at-or-after it.
-     *   - videoFps:      source frame rate; used to drive the capture
-     *                    stream and convert frame → time when seeking.
+     * Avatar workflow — two-step picker (avatar → weapon).
+     * Replaces the older 4-persona model. Asset layout:
      *
-     * Until per-persona videos arrive, all four personas point at
-     * Persona2.mp4. Swap by editing this object — no other code changes.
+     *   Avatars/{male,female}/thumb.png                  ← Step 01 picker thumb
+     *   Avatars/{male,female}/Previews/Statics/idle.png  ← Idle pose for preview pane
+     *   Avatars/{male,female}/Previews/Statics/{weapon}.png ← Per-combo preview still
+     *   Avatars/{male,female}/Final/{finalSlug}_{cutFrame}.mp4 ← Final shareable source
+     *   Weapons/{weapon}.png                             ← Step 02 picker icon
+     *
+     * `weapon` is the UI slug (action verb). `finalSlug` is the noun used
+     * in the final-video filename. The two diverge because the user shipped
+     * final videos with noun-slugs but the preview statics + weapon thumbs
+     * with verb-slugs — the table below bridges the two.
      */
-    const PERSONA_CONFIG = {
-      male1: { label: 'The Strategist', thumb: 'Personas/male1.png', baseVideo: 'Base Videos/Persona2.mp4', textCutFrame: 45, videoFps: 24 },
-      female1: { label: 'The Visionary', thumb: 'Personas/female1.png', baseVideo: 'Base Videos/Persona2.mp4', textCutFrame: 45, videoFps: 24 },
-      male2: { label: 'The Builder', thumb: 'Personas/male2.png', baseVideo: 'Base Videos/Persona2.mp4', textCutFrame: 45, videoFps: 24 },
-      female2: { label: 'The Maker', thumb: 'Personas/female2.png', baseVideo: 'Base Videos/Persona2.mp4', textCutFrame: 45, videoFps: 24 },
+    const AVATAR_CONFIG = {
+      male:   { label: 'Male',   thumb: 'Avatars/male/thumb.png',   idle: 'Avatars/male/Previews/Statics/idle.png' },
+      female: { label: 'Female', thumb: 'Avatars/female/thumb.png', idle: 'Avatars/female/Previews/Statics/idle.png' },
     };
-    const PERSONA_ORDER = ['male1', 'female1', 'male2', 'female2'];
+    const AVATAR_ORDER = ['male', 'female'];
+
+    // Weapon picker — order matches Figma node 3185:40180:
+    //   Row 1: PUNCH, CRUSH, THRASH    Row 2: SMASH, KICK, SLICE
+    const WEAPON_ORDER = ['punch', 'crush', 'thrash', 'smash', 'kick', 'slice'];
+    const WEAPON_CONFIG = {
+      smash:  { label: 'SMASH IT',  thumb: 'Weapons/smash.png',  finalSlug: 'bat'    },
+      crush:  { label: 'CRUSH IT',  thumb: 'Weapons/crush.png',  finalSlug: 'hammer' },
+      slice:  { label: 'SLICE IT',  thumb: 'Weapons/slice.png',  finalSlug: 'sword'  },
+      thrash: { label: 'THRASH IT', thumb: 'Weapons/thrash.png', finalSlug: 'flail'  },
+      kick:   { label: 'KICK IT',   thumb: 'Weapons/kick.png',   finalSlug: 'kick'   },
+      punch:  { label: 'PUNCH IT',  thumb: 'Weapons/punch.png',  finalSlug: 'punch'  },
+    };
+
+    /**
+     * Final-video filenames per (avatar, weapon). The cut frame is encoded
+     * in the filename as `{slug}_{frame}.mp4` — to change a combo's cut
+     * frame, rename the file AND update the lookup below to match.
+     * `getComboConfig()` parses the frame number out of the filename so
+     * the filename remains the single source of truth.
+     */
+    const FINAL_VIDEO_PATHS = {
+      male:   { smash:'bat_35.mp4',   crush:'hammer_76.mp4', slice:'sword_34.mp4',
+                thrash:'flail_45.mp4', kick:'kick_42.mp4',    punch:'punch_70.mp4' },
+      female: { smash:'bat_39.mp4',   crush:'hammer_72.mp4', slice:'sword_36.mp4',
+                thrash:'flail_37.mp4', kick:'kick_35.mp4',    punch:'punch_59.mp4' },
+    };
+
+    /**
+     * Resolve an (avatar, weapon) selection to the persona-shaped object
+     * the rest of the pipeline expects. Drop-in replacement for the old
+     * `PERSONA_CONFIG[selectedPersona]` lookup.
+     */
+    function getComboConfig(avatar, weapon) {
+      const filename = FINAL_VIDEO_PATHS[avatar][weapon];
+      const cutMatch = filename.match(/_(\d+)\.mp4$/);
+      return {
+        label:        `${AVATAR_CONFIG[avatar].label} · ${WEAPON_CONFIG[weapon].label}`,
+        baseVideo:    `Avatars/${avatar}/Final/${filename}`,
+        textCutFrame: cutMatch ? parseInt(cutMatch[1], 10) : 45,
+        videoFps:     24,
+      };
+    }
+
+    /**
+     * Right-pane preview source. Idle pose when no weapon yet, else the
+     * avatar+weapon static.
+     */
+    function getAvatarPreviewSrc(avatar, weapon) {
+      if (!avatar) return null;
+      if (!weapon) return AVATAR_CONFIG[avatar].idle;
+      return `Avatars/${avatar}/Previews/Statics/${weapon}.png`;
+    }
 
     /**
      * Slab text alignment. All coordinates are in the Step-A canvas pixel
@@ -1247,66 +1599,155 @@
     modalRoot.addEventListener('click', (e) => { if (e.target === modalRoot) closeModal(); });
 
     // ============================================================
-    // SECTION 3 — Persona picker
+    // SECTION 3 — Avatar workflow (two-step picker: avatar → weapon)
     // ============================================================
 
-    const personaGrid = $('#persona-grid');
-    const personaNext = $('#persona-next');
-    let selectedPersona = null;
+    const avatarGrid = $('#avatar-grid');
+    const weaponGrid = $('#weapon-grid');
+    const pickerNext = $('#picker-next');
+    const previewAvatarAsset = $('#preview-avatar-asset');
+    let selectedAvatar = null;
+    let selectedWeapon = null;
 
-    function renderPersonaGrid() {
-      personaGrid.innerHTML = '';
-      PERSONA_ORDER.forEach((key, idx) => {
-        const config = PERSONA_CONFIG[key];
+    function renderAvatarStep() {
+      avatarGrid.innerHTML = '';
+      AVATAR_ORDER.forEach((key, idx) => {
+        const config = AVATAR_CONFIG[key];
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'persona-thumb';
-        btn.dataset.persona = key;
+        btn.className = 'avatar-thumb';
+        btn.dataset.avatar = key;
         btn.setAttribute('role', 'radio');
         btn.setAttribute('aria-checked', 'false');
-        btn.setAttribute('aria-label', `${config.label} persona`);
+        btn.setAttribute('aria-label', `${config.label} avatar`);
         btn.tabIndex = idx === 0 ? 0 : -1;
         btn.innerHTML = `
-      <img src="${config.thumb}" alt="" onerror="this.style.opacity=0.2;this.alt='missing'" />
-      <span class="check" aria-hidden="true">✓</span>
-      <span class="persona-label">${config.label}</span>
-    `;
-        btn.addEventListener('click', () => selectPersona(key));
-        btn.addEventListener('keydown', handlePersonaKeydown);
-        personaGrid.appendChild(btn);
+          <img src="${config.thumb}" alt="" onerror="this.style.opacity=0.2;this.alt='missing'" />
+          <span class="check" aria-hidden="true">✓</span>
+        `;
+        btn.addEventListener('click', () => selectAvatar(key));
+        btn.addEventListener('keydown', e => handleGridKeydown(e, AVATAR_ORDER, selectAvatar, 'avatar', avatarGrid));
+        avatarGrid.appendChild(btn);
       });
     }
 
-    function handlePersonaKeydown(e) {
-      const keys = PERSONA_ORDER;
-      const current = e.currentTarget.dataset.persona;
-      const idx = keys.indexOf(current);
+    function renderWeaponStep() {
+      weaponGrid.innerHTML = '';
+      WEAPON_ORDER.forEach((key, idx) => {
+        const config = WEAPON_CONFIG[key];
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'weapon-thumb';
+        btn.dataset.weapon = key;
+        btn.setAttribute('role', 'radio');
+        btn.setAttribute('aria-checked', 'false');
+        btn.setAttribute('aria-label', config.label);
+        btn.tabIndex = -1;
+        btn.innerHTML = `
+          <img src="${config.thumb}" alt="" onerror="this.style.opacity=0.2;this.alt='missing'" />
+          <span class="check" aria-hidden="true">✓</span>
+          <span class="weapon-label">${config.label}</span>
+        `;
+        btn.addEventListener('click', () => selectWeapon(key));
+        btn.addEventListener('keydown', e => handleGridKeydown(e, WEAPON_ORDER, selectWeapon, 'weapon', weaponGrid));
+        weaponGrid.appendChild(btn);
+      });
+    }
+
+    // Shared keyboard handler for both grids — arrow keys navigate, Space/Enter selects.
+    function handleGridKeydown(e, order, selectFn, dataKey, grid) {
+      const current = e.currentTarget.dataset[dataKey];
+      const idx = order.indexOf(current);
       let next = null;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = keys[(idx + 1) % keys.length];
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = keys[(idx - 1 + keys.length) % keys.length];
-      else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); selectPersona(current); return; }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = order[(idx + 1) % order.length];
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = order[(idx - 1 + order.length) % order.length];
+      else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); selectFn(current); return; }
       if (next) {
         e.preventDefault();
-        selectPersona(next);
-        personaGrid.querySelector(`[data-persona="${next}"]`).focus();
+        selectFn(next);
+        grid.querySelector(`[data-${dataKey}="${next}"]`).focus();
       }
     }
 
-    function selectPersona(key) {
-      selectedPersona = key;
-      $$('.persona-thumb').forEach(btn => {
-        const isSel = btn.dataset.persona === key;
+    function selectAvatar(key) {
+      if (!AVATAR_CONFIG[key]) return;
+      selectedAvatar = key;
+      $$('.avatar-thumb').forEach(btn => {
+        const isSel = btn.dataset.avatar === key;
         btn.classList.toggle('is-selected', isSel);
         btn.setAttribute('aria-checked', String(isSel));
         btn.tabIndex = isSel ? 0 : -1;
       });
-      personaNext.disabled = false;
-      updatePreviewBase();
+      // First avatar pick unlocks Step 02. Weapon selection is preserved
+      // across avatar switches so changing the avatar just swaps the
+      // figure in the preview without resetting the weapon choice.
+      weaponGrid.classList.remove('is-locked');
+      weaponGrid.setAttribute('aria-disabled', 'false');
+      runAvatarPreviewTransition();
+      updatePickerNextEnabled();
     }
 
-    personaNext.addEventListener('click', () => {
-      if (!selectedPersona) return;
+    function selectWeapon(key) {
+      if (!WEAPON_CONFIG[key]) return;
+      // Step 02 is gated on Step 01 — silently no-op if avatar isn't picked
+      // yet (defensive; the grid is also pointer-events:none when locked).
+      if (!selectedAvatar) return;
+      selectedWeapon = key;
+      $$('.weapon-thumb').forEach(btn => {
+        const isSel = btn.dataset.weapon === key;
+        btn.classList.toggle('is-selected', isSel);
+        btn.setAttribute('aria-checked', String(isSel));
+        btn.tabIndex = isSel ? 0 : -1;
+      });
+      runAvatarPreviewTransition();
+      updatePickerNextEnabled();
+    }
+
+    function updatePickerNextEnabled() {
+      pickerNext.disabled = !(selectedAvatar && selectedWeapon);
+    }
+
+    // Glitchy bottom-to-top reveal. Run a token-guarded preload so rapid
+    // clicks don't show an older preview just because its load resolved
+    // later than a newer one.
+    let _previewToken = 0;
+    function runAvatarPreviewTransition() {
+      if (!selectedAvatar) return;
+      const src = getAvatarPreviewSrc(selectedAvatar, selectedWeapon);
+      const myToken = ++_previewToken;
+      const swap = () => {
+        if (myToken !== _previewToken) return;  // superseded by a newer click
+        previewAvatarAsset.classList.remove('glitch-in');
+        // force reflow so the animation re-starts on every change
+        void previewAvatarAsset.offsetWidth;
+        previewAvatarAsset.src = src;
+        previewAvatarAsset.classList.add('glitch-in');
+      };
+      // Preload the new src before swapping so the reveal animates the
+      // new image, not an empty placeholder.
+      const probe = new Image();
+      probe.onload = swap;
+      probe.onerror = swap;  // try anyway — alt-text will surface failure
+      probe.src = src;
+    }
+
+    // Preload every combo's preview static + both idles so transitions
+    // feel snappy after the first paint.
+    function preloadAvatarPreviews() {
+      for (const av of AVATAR_ORDER) {
+        new Image().src = AVATAR_CONFIG[av].idle;
+        for (const w of WEAPON_ORDER) {
+          new Image().src = `Avatars/${av}/Previews/Statics/${w}.png`;
+        }
+      }
+    }
+
+    pickerNext.addEventListener('click', () => {
+      if (!selectedAvatar || !selectedWeapon) return;
       setStage('form');
+      // Kick off frame-0 extraction in the background so the brick
+      // preview thumbnail is ready by the time the user finishes typing.
+      updatePreviewBase();
     });
 
     // ============================================================
@@ -1387,18 +1828,19 @@
       return str.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
-    // Cache first-frame thumbnails per persona so re-selection is instant.
+    // Cache first-frame thumbnails per combo so re-selection is instant.
     const _firstFrameCache = new Map();
 
     async function updatePreviewBase() {
-      if (!selectedPersona) return;
-      const cfg = PERSONA_CONFIG[selectedPersona];
+      if (!selectedAvatar || !selectedWeapon) return;
+      const cacheKey = `${selectedAvatar}:${selectedWeapon}`;
       // Reuse cached thumbnail if we've already extracted it.
-      if (_firstFrameCache.has(selectedPersona)) {
-        previewBase.src = _firstFrameCache.get(selectedPersona);
+      if (_firstFrameCache.has(cacheKey)) {
+        previewBase.src = _firstFrameCache.get(cacheKey);
         previewBase.classList.remove('is-empty');
         return;
       }
+      const cfg = getComboConfig(selectedAvatar, selectedWeapon);
       // Load the video just long enough to grab frame 0 as a still.
       const probe = document.createElement('video');
       probe.src = cfg.baseVideo;
@@ -1412,7 +1854,7 @@
         c.width = probe.videoWidth || 1080; c.height = probe.videoHeight || 1350;
         c.getContext('2d').drawImage(probe, 0, 0, c.width, c.height);
         const url = c.toDataURL('image/jpeg', 0.7);
-        _firstFrameCache.set(selectedPersona, url);
+        _firstFrameCache.set(cacheKey, url);
         previewBase.src = url;
         previewBase.classList.remove('is-empty');
       } catch (e) {
@@ -1442,18 +1884,18 @@
     }
 
     /**
-     * Step A — Load the persona's source video and return an
-     * HTMLVideoElement that's ready for frame-level processing.
+     * Step A — Load the combo's source video and return an HTMLVideoElement
+     * ready for frame-level processing. The video is the per-combo final
+     * shareable MP4 under Avatars/{avatar}/Final/. Step B / Step C are
+     * merged: we don't generate the video, we just iterate its frames in
+     * `processVideoToPoster()`.
      *
-     * The video is the new "base asset" (Kling templates → local MP4s).
-     * Step B / Step C in this build are merged: we don't generate the
-     * video, we just iterate its frames in `processVideoToPoster()`.
-     *
-     * @param {string} personaKey  One of PERSONA_ORDER
+     * @param {string} avatar  One of AVATAR_ORDER
+     * @param {string} weapon  One of WEAPON_ORDER
      * @returns {Promise<HTMLVideoElement>}
      */
-    async function loadPersonaVideo(personaKey) {
-      const cfg = PERSONA_CONFIG[personaKey];
+    async function loadComboVideo(avatar, weapon) {
+      const cfg = getComboConfig(avatar, weapon);
       const video = document.createElement('video');
       video.src = cfg.baseVideo;
       video.crossOrigin = 'anonymous';
@@ -1467,7 +1909,8 @@
       });
       // Force the first frame to be decoded before we hand the video back.
       try { await video.play(); video.pause(); video.currentTime = 0; } catch { }
-      dbg('video loaded · %s · %dx%d · %ss', cfg.baseVideo, video.videoWidth, video.videoHeight, video.duration.toFixed(2));
+      dbg('video loaded · %s · %dx%d · %ss · cutFrame=%d',
+        cfg.baseVideo, video.videoWidth, video.videoHeight, video.duration.toFixed(2), cfg.textCutFrame);
       return video;
     }
 
@@ -1886,7 +2329,7 @@
      *
      * @param {Object} args
      * @param {HTMLVideoElement} args.video
-     * @param {Object} args.persona          PERSONA_CONFIG entry
+     * @param {Object} args.persona          combo config from getComboConfig()
      * @param {Object} args.userData         { name, company, oddsText, ... }
      * @param {{razorpay:HTMLImageElement|false, campaign:HTMLImageElement|false}} args.logos
      * @param {(p:number)=>void} [args.onProgress]
@@ -2221,9 +2664,9 @@
 
       await dbgTime('Fonts', preloadFonts);
 
-      const persona = PERSONA_CONFIG[selectedPersona];
+      const persona = getComboConfig(selectedAvatar, selectedWeapon);
       const [video, razorpayLogo, campaignLogo] = await Promise.all([
-        dbgTime('Video load', () => loadPersonaVideo(selectedPersona)),
+        dbgTime('Video load', () => loadComboVideo(selectedAvatar, selectedWeapon)),
         getRazorpayLogo(),
         getCampaignLogo(),
       ]);
@@ -2287,9 +2730,11 @@
     // ============================================================
     // INIT
     // ============================================================
-    renderPersonaGrid();
+    renderAvatarStep();
+    renderWeaponStep();
+    preloadAvatarPreviews();
     updatePreviewText();
-    dbg('ready. DEBUG=%s. personas=%o', DEBUG, PERSONA_ORDER);
+    dbg('ready. DEBUG=%s. avatars=%o weapons=%o', DEBUG, AVATAR_ORDER, WEAPON_ORDER);
   </script>
 
 </body>
