@@ -195,9 +195,14 @@
       pointer-events: auto;
     }
 
-    .modal {
+    .modal-shell {
+      position: relative;
       width: 100%;
       max-width: var(--modal-max-w);
+    }
+
+    .modal {
+      width: 100%;
       max-height: calc(100vh - 32px);
       background: var(--bg-card);
       color: var(--text-on-light);
@@ -215,8 +220,8 @@
 
     .modal-close {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: -52px;
+      right: 0;
       width: 40px;
       height: 40px;
       display: flex;
@@ -1187,8 +1192,9 @@
      MODAL ROOT — persona picker / form / loading / result stages
      ============================================================ -->
   <div id="modal-root" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-heading" hidden>
-    <div class="modal" role="document">
+    <div class="modal-shell">
       <button type="button" class="modal-close" id="modal-close" aria-label="Close">×</button>
+      <div class="modal" role="document">
 
       <!-- Decorative vertical labels (only shown during the persona stage,
            positioned absolutely on the modal's left/right edges so they
@@ -1328,10 +1334,10 @@
         <div class="preview-result" id="preview-result"></div>
       </aside>
 
+      </div>
     </div>
   </div>
 
-  <div class="debug-banner debug-only">DEBUG · ?debug=1</div>
 
   <script type="module">
     'use strict';
@@ -2571,8 +2577,8 @@
         drawSlabText(srcCtx, oddsText, W, H);
       }
 
-      // 3. (debug) outline the slab area on the source canvas.
-      if (DEBUG) drawDebugSlab(srcCtx);
+      // 3. (debug overlay intentionally disabled — never burned into the
+      //    rendered asset, even when ?debug=1 is set.)
 
       // 4. Composite source canvas + poster graphics into the final.
       // (drawPosterFrame reads .width/.height when .naturalWidth and
