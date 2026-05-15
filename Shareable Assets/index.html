@@ -265,62 +265,104 @@
     }
 
     /* ============================================================
-       Avatar workflow — two-step picker (replaces old persona grid)
+       AVATAR WORKFLOW (persona stage) — Figma node 2864:14
+       Reference dimensions:
+         - Modal:  840 × 500   (16:9.5 aspect)
+         - Layout: 108px left-sidebar | 314px picker | 379px preview | 39px right-sidebar
+         - Picker content origin at modal-x=108
+         - Avatar thumb cell ~ 130 × 170 (portrait)
+         - Weapon thumb cell 80 × 80, grid 265 × 165 (3 × 2)
+
+       The whole layout is driven by --pscale: it multiplies every fixed
+       pixel value below so the picker scales 1:1 with the modal. Modal
+       width caps at 1080px, so default --pscale = 1080/840 ≈ 1.286.
        ============================================================ */
 
+    .modal[data-stage="persona"] {
+      max-width: min(1080px, 90vw);
+      aspect-ratio: 840 / 500;
+      height: auto;
+      min-height: 0;
+      grid-template-columns: 422fr 418fr;  /* 314+108 left col, 379+39 right col */
+      /* --pscale is a UNITLESS multiplier set by JS from the rendered
+         modal width / 840. Falls back to 1.286 (= 1080/840 at desktop).
+         CSS can't compute a unitless ratio from a length-divided-by-length,
+         so this has to come from JS — see syncPickerScale() in section 3. */
+      --pscale: 1.286;
+    }
+
+    /* Reset .modal-content for persona stage. Padding-left = 108px (×pscale)
+       creates the left sidebar for the rotated CLAIM YOUR MARK label.
+       Top/bottom insets match Figma (eyebrow at y=19, weapon grid ends at
+       y=463 → bottom inset 37). */
+    .modal[data-stage="persona"] .modal-content {
+      padding: calc(19px * var(--pscale)) 0 calc(37px * var(--pscale)) calc(108px * var(--pscale));
+      min-height: 0;
+      overflow: visible;
+    }
+
     .stage-avatar {
-      gap: 22px;
+      gap: calc(30px * var(--pscale));
       position: relative;
     }
 
     .picker-step {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: calc(8px * var(--pscale));
     }
 
     .step-eyebrow {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       align-self: flex-start;
       font-family: var(--font-body);
       font-weight: 500;
-      font-size: 10px;
+      font-size: calc(8px * var(--pscale));
       letter-spacing: 0.12em;
-      color: #666;
-      background: #eef0f3;
-      padding: 5px 10px;
+      color: #fff;
+      background: var(--accent);
+      padding: calc(3px * var(--pscale)) calc(8px * var(--pscale));
+      line-height: 1;
       text-transform: uppercase;
-      border-radius: 2px;
     }
 
     .step-title {
       font-family: var(--font-display);
       font-weight: 400;
-      font-size: clamp(26px, 3.2vw, 36px);
-      line-height: 1.0;
+      font-size: calc(22px * var(--pscale));
+      /* Figma heading bbox is 29 (font 22 + ~7 of leading). Setting
+         line-height ≈ 1.32 gives the same visual cushion below the chip
+         so the avatar/weapon grid lands at Figma's vertical position. */
+      line-height: 1.32;
       letter-spacing: 0.005em;
       text-transform: uppercase;
       color: var(--text-on-light);
-      margin: 4px 0 10px;
+      margin: 0;
     }
 
+    /* Avatar grid — 2 thumbs, 119×119 square each (scaled), 10px gap.
+       Matches Figma frame 2864:22814 (247.79 × 119.07). */
     .avatar-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
+      grid-template-columns: repeat(2, calc(119px * var(--pscale)));
+      gap: calc(10px * var(--pscale));
+      margin-top: calc(4px * var(--pscale));
     }
 
     .avatar-thumb {
       position: relative;
-      aspect-ratio: 1/1;
+      width: calc(119px * var(--pscale));
+      height: calc(119px * var(--pscale));
       background: #0a0a0a;
       overflow: hidden;
       padding: 0;
       border: none;
       cursor: pointer;
       transition: outline-color .15s ease;
-      outline: 2px solid transparent;
-      outline-offset: -2px;
+      outline: calc(2px * var(--pscale)) solid transparent;
+      outline-offset: calc(-2px * var(--pscale));
       display: block;
     }
 
@@ -338,16 +380,16 @@
     .avatar-thumb .check,
     .weapon-thumb .check {
       position: absolute;
-      top: 6px;
-      right: 6px;
-      width: 20px;
-      height: 20px;
+      top: calc(5px * var(--pscale));
+      right: calc(5px * var(--pscale));
+      width: calc(16px * var(--pscale));
+      height: calc(16px * var(--pscale));
       background: var(--accent);
       color: #fff;
       display: none;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
+      font-size: calc(10px * var(--pscale));
       font-weight: 700;
       line-height: 1;
       z-index: 2;
@@ -356,10 +398,13 @@
     .avatar-thumb.is-selected .check,
     .weapon-thumb.is-selected .check { display: flex; }
 
+    /* Weapon grid — 3×2 thumbs, 80×80 each (scaled), 5.3px gap. Total grid
+       width 250.55 + 14.45 slack = 265 (matches Figma frame). */
     .weapon-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(3, calc(80px * var(--pscale)));
+      gap: calc(5.3px * var(--pscale));
+      margin-top: calc(4px * var(--pscale));
       transition: opacity .2s ease;
     }
 
@@ -370,23 +415,24 @@
 
     .weapon-thumb {
       position: relative;
-      aspect-ratio: 1/1;
+      width: calc(80px * var(--pscale));
+      height: calc(80px * var(--pscale));
       background: #0a0a0a;
       overflow: hidden;
       padding: 0;
       border: none;
       cursor: pointer;
       transition: outline-color .15s ease;
-      outline: 2px solid transparent;
-      outline-offset: -2px;
+      outline: calc(2px * var(--pscale)) solid transparent;
+      outline-offset: calc(-2px * var(--pscale));
       display: block;
     }
 
     .weapon-thumb img {
       position: absolute;
       top: 8%;
-      left: 12%;
-      width: 76%;
+      left: 10%;
+      width: 80%;
       height: 64%;
       object-fit: contain;
       display: block;
@@ -402,55 +448,80 @@
       right: 0;
       font-family: var(--font-body);
       font-weight: 600;
-      font-size: 10px;
+      font-size: calc(8px * var(--pscale));
       color: #fff;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 5px 8px;
+      background: rgba(0, 0, 0, 0.78);
+      padding: calc(3px * var(--pscale)) calc(5px * var(--pscale));
       text-transform: uppercase;
       letter-spacing: 0.08em;
       transition: background .15s ease;
+      line-height: 1.15;
     }
 
-    .weapon-thumb.is-selected .weapon-label {
-      background: var(--accent);
-    }
+    .weapon-thumb.is-selected .weapon-label { background: var(--accent); }
 
-    /* Vertical decorative labels on the modal's left/right edges */
+    /* ============================================================
+       Vertical labels — children of .modal so they aren't clipped by
+       .modal-content / .preview-pane. Hidden by default; only shown
+       during the persona stage.
+
+       Each label is centered at the modal's left/right edge via
+       transform-origin + rotate(-90deg / +90deg). The translate(-50%,
+       -50%) on top of that re-centers the *rotated* bounding box at
+       (x = sidebar-center, y = 50% of modal).
+       ============================================================ */
     .vert-side-label {
       position: absolute;
-      font-family: var(--font-body);
-      font-weight: 500;
-      font-size: 10px;
-      letter-spacing: 0.22em;
-      color: #b9bcc2;
+      display: none;
+      font-family: var(--font-display);
+      font-weight: 400;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       white-space: nowrap;
       pointer-events: none;
-      z-index: 5;
+      user-select: none;
+      z-index: 6;
     }
 
+    .modal[data-stage="persona"] .vert-side-label { display: block; }
+
     .vert-side-label--left {
-      left: -8px;
       top: 50%;
-      transform: translate(-100%, -50%) rotate(-90deg);
-      transform-origin: right center;
+      left: calc(54px * var(--pscale));            /* center of the 108px sidebar */
+      font-size: calc(40px * var(--pscale));
+      color: #b9bdc6;
+      transform: translate(-50%, -50%) rotate(-90deg);
+      transform-origin: center center;
     }
 
     .vert-side-label--right {
-      right: -8px;
       top: 50%;
-      transform: translate(100%, -50%) rotate(90deg);
-      transform-origin: left center;
-      color: rgba(255, 255, 255, 0.4);
+      right: calc(19.5px * var(--pscale));         /* center of the 39px sidebar */
+      font-size: calc(10px * var(--pscale));
+      letter-spacing: 0.22em;
+      font-family: var(--font-body);
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.55);
+      transform: translate(50%, -50%) rotate(90deg);
+      transform-origin: center center;
     }
 
     /* ============================================================
-       Avatar preview pane (right column, persona stage only)
-       ============================================================ */
+       Preview pane — persona stage only. The avatar-preview overlay
+       sits ON TOP of the existing preview-inner (which is hidden
+       during persona stage by the rules below).
 
+       Insets match Figma frame 2864:147 (preview at modal-x=422,
+       y=30, size 379×454 inside an 840×500 modal): 30px from the
+       column top, 16px from the bottom, and 39px excluded from the
+       right edge so the right vertical sidebar can show through.
+       ============================================================ */
     .preview-avatar {
       position: absolute;
-      inset: 0;
+      top: calc(30px * var(--pscale, 1));
+      left: 0;
+      bottom: calc(16px * var(--pscale, 1));
+      right: calc(39px * var(--pscale, 1));
       display: none;
       background: #000;
       overflow: hidden;
@@ -458,7 +529,12 @@
 
     .modal[data-stage="persona"] .preview-avatar { display: block; }
     .modal[data-stage="persona"] .preview-inner { display: none; }
+    /* Preview-pane background = modal-card white during persona stage so
+       the 30/16 insets around .preview-avatar read as white frame. */
+    .modal[data-stage="persona"] .preview-pane { background: var(--bg-card); }
 
+    /* "BRACE TO BREAK" tiled watermark — Figma stacks 7 lines at line-height
+       0.65 of the font size. Font is large so they tile densely. */
     .preview-avatar-watermark {
       position: absolute;
       inset: 0;
@@ -466,8 +542,8 @@
       flex-direction: column;
       justify-content: center;
       align-items: flex-start;
-      gap: 4px;
-      padding: 0 16px;
+      gap: calc(2px * var(--pscale, 1));
+      padding: 0 calc(14px * var(--pscale, 1));
       pointer-events: none;
       user-select: none;
       overflow: hidden;
@@ -476,53 +552,61 @@
     .preview-avatar-watermark span {
       font-family: var(--font-display);
       font-weight: 400;
-      font-size: clamp(48px, 7.2vw, 86px);
-      line-height: 0.95;
-      letter-spacing: 0;
+      font-size: calc(58px * var(--pscale, 1));
+      line-height: 0.85;
+      letter-spacing: 0.005em;
       text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.045);
+      color: rgba(255, 255, 255, 0.06);
       white-space: nowrap;
     }
 
+    /* Avatar figure — Figma places it at modal-x=475 (so x=53 within the
+       379px-wide preview pane), top y=41 (11 inside the preview-avatar's
+       30px modal-y origin), size 265×379. Using exact pixel-scaled values
+       so it sits in the same spot regardless of right-sidebar padding. */
     .preview-avatar-asset {
       position: absolute;
-      top: 4%;
-      left: 50%;
-      transform: translateX(-50%);
-      height: 88%;
-      max-width: 95%;
+      top: calc(11px * var(--pscale, 1));
+      left: calc(53px * var(--pscale, 1));
+      width: calc(265px * var(--pscale, 1));
+      height: calc(379px * var(--pscale, 1));
       object-fit: contain;
       object-position: bottom center;
       z-index: 2;
     }
 
     .preview-avatar-asset:not([src]),
-    .preview-avatar-asset[src=""] {
-      display: none;
-    }
+    .preview-avatar-asset[src=""] { display: none; }
 
+    /* PREVIEW chip — direct child of .preview-pane so it sits at the
+       column's top-left corner (Figma modal-x=422, y=19). Hidden by
+       default; shown only during persona stage. */
     .preview-avatar-eyebrow {
       position: absolute;
-      top: 14px;
-      left: 14px;
+      display: none;
+      top: calc(19px * var(--pscale, 1));
+      left: 0;
       font-family: var(--font-body);
       font-weight: 500;
-      font-size: 9px;
+      font-size: calc(8px * var(--pscale, 1));
       letter-spacing: 0.18em;
       color: #fff;
       background: var(--accent);
-      padding: 4px 9px;
+      padding: calc(2px * var(--pscale, 1)) calc(6px * var(--pscale, 1));
       text-transform: uppercase;
+      line-height: 1;
       z-index: 4;
     }
+
+    .modal[data-stage="persona"] .preview-avatar-eyebrow { display: inline-flex; }
 
     .preview-avatar-ticker {
       position: absolute;
       left: 0;
-      right: 0;
+      right: 0;                              /* parent .preview-avatar already excludes the right sidebar */
       bottom: 0;
-      height: 38px;
-      background: rgba(255, 255, 255, 0.08);
+      height: calc(28px * var(--pscale, 1));
+      background: rgba(255, 255, 255, 0.07);
       overflow: hidden;
       display: flex;
       align-items: center;
@@ -531,16 +615,16 @@
 
     .preview-avatar-ticker-track {
       display: flex;
-      gap: 18px;
+      gap: calc(14px * var(--pscale, 1));
       white-space: nowrap;
-      animation: ticker-scroll 18s linear infinite;
+      animation: ticker-scroll 22s linear infinite;
       font-family: var(--font-body);
       font-weight: 500;
-      font-size: 11px;
-      letter-spacing: 0.18em;
+      font-size: calc(9px * var(--pscale, 1));
+      letter-spacing: 0.2em;
       color: rgba(255, 255, 255, 0.55);
       text-transform: uppercase;
-      padding-left: 18px;
+      padding-left: calc(14px * var(--pscale, 1));
     }
 
     @keyframes ticker-scroll {
@@ -548,41 +632,49 @@
       to   { transform: translateX(-50%); }
     }
 
+    /* NEXT button — direct child of .preview-pane. Figma puts it near
+       the bottom-right of the modal (text at modal-x=741, y=453, button
+       frame ~73×40). With .preview-pane spanning modal-x=422..840, the
+       button's right edge lands ~26px from modal-right. */
     .picker-next {
       position: absolute;
-      right: 14px;
-      bottom: 52px;
+      display: none;
+      right: calc(26px * var(--pscale, 1));
+      bottom: calc(16px * var(--pscale, 1));
       z-index: 5;
       font-family: var(--font-body);
       font-weight: 700;
-      font-size: 13px;
-      letter-spacing: 0.12em;
+      font-size: calc(13px * var(--pscale, 1));
+      letter-spacing: 0.16em;
       text-transform: uppercase;
       color: #fff;
       background: var(--accent);
       border: none;
-      padding: 14px 30px;
+      padding: calc(10px * var(--pscale, 1)) calc(22px * var(--pscale, 1));
       cursor: pointer;
       transition: opacity .15s ease, transform .12s ease;
     }
 
+    .modal[data-stage="persona"] .picker-next { display: inline-flex; }
     .picker-next:hover:not(:disabled) { transform: translateY(-1px); }
     .picker-next:disabled { opacity: 0.45; cursor: not-allowed; }
 
     /* ============================================================
        Glitch reveal — bottom-to-top scanline-ish wipe, fired on
-       every avatar/weapon change. Uses `steps()` to give the
-       progress a chunky/glitchy character rather than smooth.
+       every avatar/weapon change. The `translate3d(-50%, 0, 0)` is
+       there because the asset has been moved out from under the
+       transform-based centering — left/top/width/height drive
+       positioning now, so only the glitch jitter rides on transform.
        ============================================================ */
     @keyframes glitch-reveal {
-      0%   { clip-path: inset(100% 0 0 0); filter: hue-rotate(180deg) saturate(1.6) contrast(1.2); transform: translate3d(-50%, 0, 0) translateX(-5px); }
-      12%  { clip-path: inset(86% 0 0 0); filter: hue-rotate(140deg); transform: translate3d(-50%, 0, 0) translateX(4px); }
-      24%  { clip-path: inset(72% 0 0 0); filter: hue-rotate(80deg) saturate(1.3); transform: translate3d(-50%, 0, 0) translateX(-3px); }
-      38%  { clip-path: inset(56% 0 0 0); filter: hue-rotate(30deg); transform: translate3d(-50%, 0, 0) translateX(2px); }
-      52%  { clip-path: inset(40% 0 0 0); filter: none; transform: translate3d(-50%, 0, 0) translateX(-2px); }
-      68%  { clip-path: inset(22% 0 0 0); transform: translate3d(-50%, 0, 0) translateX(1px); }
-      84%  { clip-path: inset(8% 0 0 0); transform: translate3d(-50%, 0, 0) translateX(-1px); }
-      100% { clip-path: inset(0 0 0 0); filter: none; transform: translate3d(-50%, 0, 0); }
+      0%   { clip-path: inset(100% 0 0 0); filter: hue-rotate(180deg) saturate(1.6) contrast(1.2); transform: translateX(-5px); }
+      12%  { clip-path: inset(86% 0 0 0); filter: hue-rotate(140deg); transform: translateX(4px); }
+      24%  { clip-path: inset(72% 0 0 0); filter: hue-rotate(80deg) saturate(1.3); transform: translateX(-3px); }
+      38%  { clip-path: inset(56% 0 0 0); filter: hue-rotate(30deg); transform: translateX(2px); }
+      52%  { clip-path: inset(40% 0 0 0); filter: none; transform: translateX(-2px); }
+      68%  { clip-path: inset(22% 0 0 0); transform: translateX(1px); }
+      84%  { clip-path: inset(8% 0 0 0); transform: translateX(-1px); }
+      100% { clip-path: inset(0 0 0 0); filter: none; transform: none; }
     }
 
     .preview-avatar-asset.glitch-in {
@@ -985,6 +1077,22 @@
         height: 100vh;
       }
 
+      /* Persona stage on mobile: drop the aspect-ratio + 4-zone grid,
+         stack vertically (preview already hidden via .preview-pane below),
+         hide vertical labels, give thumbs a fluid grid. */
+      .modal[data-stage="persona"] {
+        max-width: 100%;
+        aspect-ratio: auto;
+        height: 100vh;
+        max-height: 100vh;
+        grid-template-columns: 1fr;
+        --pscale: 1;
+      }
+
+      .modal[data-stage="persona"] .modal-content {
+        padding: 56px 24px 24px;
+      }
+
       .modal-content {
         padding: 56px 24px 24px;
         min-height: 0;
@@ -995,16 +1103,21 @@
       }
 
       .avatar-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
       }
 
+      .avatar-thumb { width: auto; height: auto; aspect-ratio: 130/170; }
+
       .weapon-grid {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 6px;
       }
 
-      .vert-side-label { display: none; }
+      .weapon-thumb { width: auto; height: auto; aspect-ratio: 1/1; }
+
+      .vert-side-label,
+      .modal[data-stage="persona"] .vert-side-label { display: none; }
 
       .heading-display {
         font-size: 30px;
@@ -1077,12 +1190,16 @@
     <div class="modal" role="document">
       <button type="button" class="modal-close" id="modal-close" aria-label="Close">×</button>
 
+      <!-- Decorative vertical labels (only shown during the persona stage,
+           positioned absolutely on the modal's left/right edges so they
+           sit OUTSIDE .modal-content / .preview-pane and aren't clipped) -->
+      <span class="vert-side-label vert-side-label--left" aria-hidden="true">CLAIM YOUR MARK</span>
+      <span class="vert-side-label vert-side-label--right" aria-hidden="true">BREAK TO BUILD</span>
+
       <section class="modal-content" id="modal-content">
 
         <!-- Stage 1: Avatar + Weapon picker (two-step) -->
         <div class="stage stage-avatar is-active" data-stage="persona">
-          <span class="vert-side-label vert-side-label--left" aria-hidden="true">CLAIM YOUR MARK</span>
-
           <section class="picker-step" data-step="avatar">
             <span class="step-eyebrow">Step 01</span>
             <h2 id="modal-heading" class="step-title">Pick your avatar</h2>
@@ -1179,8 +1296,6 @@
             <span>BRACE TO BREAK</span>
           </div>
           <img class="preview-avatar-asset" id="preview-avatar-asset" alt="" />
-          <span class="preview-avatar-eyebrow">Preview</span>
-          <span class="vert-side-label vert-side-label--right" aria-hidden="true">BREAK TO BUILD</span>
           <div class="preview-avatar-ticker" aria-hidden="true">
             <div class="preview-avatar-ticker-track">
               <span>BREAK TO BUILD</span><span>·</span>
@@ -1191,8 +1306,14 @@
               <span>BREAK TO BUILD</span><span>·</span>
             </div>
           </div>
-          <button type="button" class="picker-next" id="picker-next" disabled>NEXT</button>
         </div>
+
+        <!-- PREVIEW eyebrow chip + NEXT button live in .preview-pane (not
+             .preview-avatar) because Figma places them at the column's
+             top-left / bottom-right corners — OUTSIDE the inset preview
+             frame. Only visible during the persona stage. -->
+        <span class="preview-avatar-eyebrow" aria-hidden="true">Preview</span>
+        <button type="button" class="picker-next" id="picker-next" disabled>NEXT</button>
 
         <!-- Live brick preview (form/loading stages) -->
         <div class="preview-inner">
@@ -1572,11 +1693,31 @@
       // its content (live preview ↔ result video).
       const modal = $('.modal');
       if (modal) modal.dataset.stage = name;
+      // Keep the picker's pixel-scale CSS variable in sync with the
+      // actual rendered modal width. Only relevant for persona stage,
+      // but cheap to do every time.
+      syncPickerScale();
       // shift focus into the new stage
       const stage = $(`.stage[data-stage="${name}"]`);
       const focusable = getFocusableInStage(stage);
       if (focusable.length) focusable[0].focus();
     }
+
+    /**
+     * --pscale must be a UNITLESS multiplier because CSS calc() can't
+     * divide a length by a length. So we measure the modal's rendered
+     * width here and update --pscale = width / 840 (where 840 is the
+     * Figma reference modal width). Every persona-stage dimension is
+     * `calc(Npx * var(--pscale))` and scales linearly with the modal.
+     */
+    function syncPickerScale() {
+      const modal = $('.modal');
+      if (!modal) return;
+      const w = modal.offsetWidth;
+      if (!w) return;
+      modal.style.setProperty('--pscale', String(w / 840));
+    }
+    window.addEventListener('resize', syncPickerScale);
 
     // Escape closes; tab traps within modal
     document.addEventListener('keydown', (e) => {
