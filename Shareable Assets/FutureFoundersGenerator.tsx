@@ -1,5 +1,16 @@
 // ============================================================================
-// Founder's Brick Generator — Framer Code Component
+// Future Founder's Generator — Framer Code Component
+// ----------------------------------------------------------------------------
+// Sister flow to FoundersBrickGenerator. Same video pipeline (avatar + weapon
+// → trophy clip with engraved slab) but a different overlay and input set:
+//   • Form fields: name + whatsStoppingYou (no company)
+//   • Slab engraving uses whatsStoppingYou
+//   • Poster overlay redesigned (Figma node 3851:83 — Aspiring Founder):
+//       – Top-left headline "I'M TAKING THE PLEDGE TO BEAT THE ODDS"
+//       – Subtitle "and building for india"
+//       – Name in Rightman Signature script (rotated -16.47°)
+//       – Razorpay logo (top-left) + Break to Build logo (top-right)
+//       – Grey "FUTURE FOUNDER" ticker rotated -9.12° across the bottom
 // ============================================================================
 
 import { addPropertyControls, ControlType } from "framer"
@@ -156,12 +167,19 @@ const SLAB_CONFIG = {
     ] as Array<[number, number]>,
 }
 
+/**
+ * Poster overlay config. All values are in CANVAS pixels (1080×1350).
+ *
+ * Coords pulled from Figma node 3851:83 ("Aspiring Founder") which is a
+ * 620×775 mock; values here are × (1080/620) ≈ 1.7419 to map to the final
+ * canvas. Reference screenshot is the IPL '26 Landing Page file.
+ */
 const POSTER_OVERLAY = {
     bg: "#010201",
     textColor: "#c4c4c4",
     accent: "#0039ff",
-    // Top-left: Razorpay logo. Figma 3865:271 — 29, 22.03, 129.13, 27.55
-    // in the 620×775 mock; coords below are × (1080/620) ≈ 1.7419.
+
+    // Top-left: Razorpay logo (figma 29,22.03,129.13,27.55)
     razorpayLogo: {
         x: 50.51,
         y: 38.37,
@@ -169,8 +187,8 @@ const POSTER_OVERLAY = {
         h: 47.98,
         src: `${R2_BASE}/Avatars/Razorpay_Logo.png`,
     },
-    // Top-right: Break to Build mark. Figma 3865:283 — 461, 14, 144, 38.22
-    // in the 620×775 mock.
+
+    // Top-right: Break to Build campaign mark (figma 461,14,144,38.22)
     campaignLogo: {
         x: 803.05,
         y: 24.39,
@@ -178,53 +196,71 @@ const POSTER_OVERLAY = {
         h: 66.58,
         src: `${R2_BASE}/Avatars/BreakToBuild_logo.png`,
     },
-    // Diagonal "ODDS BEATEN / FUTURE FOUNDER" strip — pre-rotated SVG.
-    tickerImage: { src: `${R2_BASE}/Avatars/Ticker_Blue.svg` },
-    title: {
-        centerX: 540,
-        top: 79.55,
-        eyebrow: {
-            text: "THANK YOU",
-            fontFamily: "Unbounded",
-            fontWeight: 400,
-            fontSize: 32.729,
-            letterSpacing: -1.31,
-        },
-        eyebrowToNameGap: 25,
-        name: {
-            fontFamily: "Unbounded",
-            fontWeight: 900,
-            fontSize: 94.706,
-            lineHeight: 92.424,
-            letterSpacing: -3.79,
-            maxWidth: 1020,
-        },
-        nameToSubtitleGap: 18,
-        subtitle: {
-            prefix: "FOR BEATING THE ODDS AND BUILDING ",
-            fontFamily: "Unbounded",
-            fontWeight: 400,
-            fontSize: 28.016,
-            lineHeight: 38.1,
-            letterSpacing: -1.12,
-            // Figma 3865:247 — narrower max so the company name always
-            // lands on its own line (matches the design's 2-line wrap).
-            maxWidth: 639,
-        },
+
+    // Grey diagonal "FUTURE FOUNDER" strip (figma node 3851:144).
+    // The SVG is pre-rendered with the gradient, "FUTURE FOUNDER" repeats,
+    // and star glyphs baked in — we just translate + rotate on draw.
+    tickerImage: { src: `${R2_BASE}/Avatars/Ticker_Grey.svg` },
+
+    // Headline "I'M TAKING THE PLEDGE TO BEAT THE ODDS" — left aligned in
+    // the top-left of the canvas. Figma node 3851:163.
+    //  figma: x=29, y=83, font 42 / leading 42, tracking -1.68, w=511
+    headline: {
+        x: 50.51,
+        y: 144.58,
+        text: "I'M TAKING THE PLEDGE TO BEAT THE ODDS",
+        fontFamily: "Unbounded",
+        fontWeight: 900,
+        fontSize: 73.16,
+        lineHeight: 73.16, // fixed px — figma: leading-[42px]
+        letterSpacing: -2.92,
+        maxWidth: 890.13,
+        color: "#c4c4c4",
     },
+
+    // Static subtitle. Figma node 3851:164.
+    //  figma: x=29, y=218, font 18 / leading 1.36, tracking -0.72
+    subtitle: {
+        x: 50.51,
+        y: 379.74,
+        text: "AND BUILD FOR INDIA",
+        fontFamily: "Unbounded",
+        fontWeight: 400,
+        fontSize: 31.35,
+        lineHeight: 42.64,
+        letterSpacing: -1.25,
+        color: "#c4c4c4",
+    },
+
+    // Dynamic name in Rightman Signature script, rotated. Figma node 3851:162.
+    //  figma flex container: cx=414.48, top=162, w=328.95, h=212.78
+    //  font 142.185, leading 131.154, rotate -16.47°
+    name: {
+        centerX: 722.03,
+        centerY: 467.5,
+        fontFamily: "'Rightman Signature', 'Allura', 'Sacramento', cursive",
+        fontWeight: 400,
+        fontSize: 247.69,
+        minFontSize: 110,
+        lineHeight: 228.46,
+        rotation: -16.47,
+        color: "#e7e3e3",
+        maxWidth: 573.0,
+    },
+
     media: { x: 0, y: 0 },
 
-    // Diagonal blue ticker strip — Figma frame 3865:248.
-    // IMPORTANT: Ticker_Blue.svg is 1376×302 with the -9.12° rotation BAKED
+    // Diagonal "FUTURE FOUNDER" strip — Figma frame 3851:144.
+    // IMPORTANT: Ticker_Grey.svg is 1403×298 with the -9.12° rotation BAKED
     // INTO the file's internal <rect transform>. Treat it as a flat image:
     //   • Do NOT apply canvas rotation (we'd double-rotate).
     //   • Position by top-left at the Figma container's CSS position
-    //     (-221, 596 in the 620×775 mock → ×1.7419 to canvas).
+    //     (-193,577 in the 620×775 mock → ×1.7419 to canvas).
     //   • Width matches the Figma container; height derives at draw time
     //     from the SVG's natural aspect ratio so the text isn't squished.
     ticker: {
-        x: -384.96, // -221 × 1.7419
-        y: 1038.2, // 596 × 1.7419
+        x: -336.18, // -193 × 1.7419
+        y: 1005.07, // 577 × 1.7419
         w: 1966.44, // 1128.895 × 1.7419
     },
 }
@@ -312,8 +348,24 @@ async function getTickerImage() {
     return _tickerImageCache
 }
 
+// Rightman Signature is a premium foundry font (not on Google Fonts); we
+// preload Allura and Sacramento as visual fallbacks so the signature still
+// reads as a flowing script even if the licensed font isn't installed.
 const GOOGLE_FONTS_HREF =
-    "https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Special+Gothic+Condensed+One&family=Unbounded:wght@400;700;900&display=swap"
+    "https://fonts.googleapis.com/css2?family=Allura&family=Anton&family=Inter:wght@400;500;600;700&family=Sacramento&family=Special+Gothic+Condensed+One&family=Unbounded:wght@400;700;900&display=swap"
+
+// Custom signature font served from our R2 CDN. Injected as a <style>
+// @font-face rule so document.fonts.load(...) below can await its
+// availability the same way it does for the Google Fonts faces.
+const RIGHTMAN_FONT_FACE = `
+@font-face {
+  font-family: "Rightman Signature";
+  src: url("${R2_BASE}/Avatars/RightmanSignature.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+`
 
 async function injectGoogleFontsStylesheet() {
     if (typeof document === "undefined") return
@@ -332,6 +384,12 @@ async function injectGoogleFontsStylesheet() {
     link.href = GOOGLE_FONTS_HREF
     link.setAttribute("data-brick-fonts", "true")
     document.head.appendChild(link)
+    if (!document.querySelector('style[data-brick-rightman="true"]')) {
+        const style = document.createElement("style")
+        style.setAttribute("data-brick-rightman", "true")
+        style.textContent = RIGHTMAN_FONT_FACE
+        document.head.appendChild(style)
+    }
     await new Promise<void>((resolve) => {
         link.onload = () => resolve()
         link.onerror = () => resolve()
@@ -350,8 +408,20 @@ async function preloadFonts() {
             document.fonts.load('400 100px "Special Gothic Condensed One"'),
             document.fonts.load('400 200px "Special Gothic Condensed One"'),
             document.fonts.load("900 80px Unbounded"),
+            document.fonts.load("900 200px Unbounded"),
             document.fonts.load("400 32px Unbounded"),
             document.fonts.load("400 18px Inter"),
+            // Rightman Signature — licensed OTF served from R2, registered
+            // via the @font-face block injected in injectGoogleFontsStylesheet.
+            // Preload at the sizes fitOneLine() binary-searches between
+            // (minFontSize..fontSize for the user's name).
+            document.fonts.load('400 110px "Rightman Signature"'),
+            document.fonts.load('400 180px "Rightman Signature"'),
+            document.fonts.load('400 250px "Rightman Signature"'),
+            // Google Fonts fallbacks while the OTF is in-flight (font-display: swap).
+            document.fonts.load("400 150px Allura"),
+            document.fonts.load("400 250px Allura"),
+            document.fonts.load("400 150px Sacramento"),
         ])
         await document.fonts.ready
     } catch { }
@@ -762,33 +832,19 @@ function drawSlabText(
     ctx.restore()
 }
 
-function wrapPosterName(
-    name: string,
-    ctx: CanvasRenderingContext2D,
-    maxW: number
-) {
-    if (ctx.measureText(name).width <= maxW && !name.includes(" "))
-        return [name]
-    if (!name.includes(" ")) return [name]
-    const mid = Math.floor(name.length / 2)
-    let splitIdx = -1,
-        bestDist = Infinity
-    for (let i = 0; i < name.length; i++) {
-        if (name[i] === " " && Math.abs(i - mid) < bestDist) {
-            splitIdx = i
-            bestDist = Math.abs(i - mid)
-        }
-    }
-    if (splitIdx === -1) return [name]
-    return [name.slice(0, splitIdx), name.slice(splitIdx + 1)]
-}
-
-function wrapPosterSubtitle(
+/**
+ * Greedy word-wrap helper for headline copy. Packs as many whole words as
+ * fit into `maxW` at the context's current font, then breaks. Identical
+ * spirit to wrapGreedy() in the slab renderer, but lighter — no
+ * hyphenation, no auto-fit (callers pick a fixed font size).
+ */
+function wrapPosterText(
     text: string,
     ctx: CanvasRenderingContext2D,
     maxW: number
 ) {
-    const words = text.split(" ")
+    const words = text.split(/\s+/).filter(Boolean)
+    if (words.length === 0) return [text]
     const lines: string[] = []
     let cur = ""
     for (const w of words) {
@@ -800,78 +856,126 @@ function wrapPosterSubtitle(
         }
     }
     if (cur) lines.push(cur)
-    return lines
+    return lines.length ? lines : [text]
 }
 
+/**
+ * Binary-search the LARGEST font size at which `text` fits on ONE line
+ * within `maxW`. Used for the cursive name signature — a script font
+ * looks broken when wrapped, so we shrink-to-fit instead.
+ */
+function fitOneLine(
+    text: string,
+    ctx: CanvasRenderingContext2D,
+    opts: {
+        fontFamily: string
+        fontWeight: number
+        maxWidth: number
+        maxFontSize: number
+        minFontSize: number
+    }
+) {
+    const { fontFamily, fontWeight, maxWidth, maxFontSize, minFontSize } = opts
+    let lo = minFontSize,
+        hi = maxFontSize,
+        best = minFontSize
+    while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2)
+        ctx.font = `${fontWeight} ${mid}px ${fontFamily}`
+        if (ctx.measureText(text).width <= maxWidth) {
+            best = mid
+            lo = mid + 1
+        } else {
+            hi = mid - 1
+        }
+    }
+    ctx.font = `${fontWeight} ${best}px ${fontFamily}`
+    return best
+}
+
+/**
+ * Draw the static poster chrome around the video. Layout matches Figma
+ * node 3851:83 (Aspiring Founder):
+ *   1. Razorpay logo (top-left)
+ *   2. Break to Build logo (top-right)
+ *   3. Headline "I'M TAKING THE PLEDGE TO BEAT THE ODDS" (top-left,
+ *      left-aligned, fixed font, greedy multi-line wrap)
+ *   4. Subtitle "AND BUILD FOR INDIA" (left-aligned, single line)
+ *   5. Cursive signature with the user's name (rotated -16.47°,
+ *      shrink-to-fit single line)
+ *   6. Grey "FUTURE FOUNDER" ticker (rotated -9.12° across the bottom)
+ */
 function renderPosterOverlay(
     ctx: CanvasRenderingContext2D,
-    userData: { name: string; company: string },
+    userData: { name: string },
     logos: LogoSet
 ) {
     const P = POSTER_OVERLAY
-    const T = P.title
-    const { name, company } = userData
 
-    // Razorpay logo (top-left)
+    // 1 — Razorpay logo (top-left)
     const RL = P.razorpayLogo
     if (logos.razorpay) {
         ctx.drawImage(logos.razorpay, RL.x, RL.y, RL.w, RL.h)
     }
 
-    // Campaign logo (top-right)
+    // 2 — Campaign logo (top-right)
     const CL = P.campaignLogo
     if (logos.campaign) {
         ctx.drawImage(logos.campaign, CL.x, CL.y, CL.w, CL.h)
     }
 
-    // Title stack
-    ctx.fillStyle = P.textColor
-    ctx.textAlign = "center"
+    // 3 — Headline
+    const H = P.headline
+    ctx.save()
+    ctx.fillStyle = H.color
+    ctx.textAlign = "left"
     ctx.textBaseline = "top"
-
-    const E = T.eyebrow
-    ctx.font = `${E.fontWeight} ${E.fontSize}px '${E.fontFamily}', sans-serif`
+    ctx.font = `${H.fontWeight} ${H.fontSize}px '${H.fontFamily}', sans-serif`
     if ("letterSpacing" in ctx)
-        (ctx as any).letterSpacing = `${E.letterSpacing}px`
-    const eyebrowTop = T.top
-    ctx.fillText(E.text, T.centerX, eyebrowTop)
-    const eyebrowBottom = eyebrowTop + E.fontSize
-
-    const N = T.name
-    ctx.font = `${N.fontWeight} ${N.fontSize}px '${N.fontFamily}', sans-serif`
-    if ("letterSpacing" in ctx)
-        (ctx as any).letterSpacing = `${N.letterSpacing}px`
-    const nameLines = wrapPosterName(
-        (name || "YOUR NAME").toUpperCase(),
-        ctx,
-        N.maxWidth
+        (ctx as any).letterSpacing = `${H.letterSpacing}px`
+    const headlineLines = wrapPosterText(H.text, ctx, H.maxWidth)
+    headlineLines.forEach((line, i) =>
+        ctx.fillText(line, H.x, H.y + i * H.lineHeight)
     )
-    const nameTop = eyebrowBottom + T.eyebrowToNameGap
-    nameLines.forEach((line, i) =>
-        ctx.fillText(line, T.centerX, nameTop + i * N.lineHeight)
-    )
-    const nameBottom = nameTop + nameLines.length * N.lineHeight
+    ctx.restore()
 
-    const S = T.subtitle
+    // 4 — Subtitle
+    const S = P.subtitle
+    ctx.save()
+    ctx.fillStyle = S.color
+    ctx.textAlign = "left"
+    ctx.textBaseline = "top"
     ctx.font = `${S.fontWeight} ${S.fontSize}px '${S.fontFamily}', sans-serif`
     if ("letterSpacing" in ctx)
         (ctx as any).letterSpacing = `${S.letterSpacing}px`
-    const prefixLines = wrapPosterSubtitle(S.prefix.trim(), ctx, S.maxWidth)
-    const companyLines = wrapPosterSubtitle(
-        (company || "YOUR COMPANY").toUpperCase(),
-        ctx,
-        S.maxWidth
-    )
-    const allSubLines = [...prefixLines, ...companyLines]
-    const subtitleTop = nameBottom + T.nameToSubtitleGap
-    allSubLines.forEach((line, i) =>
-        ctx.fillText(line, T.centerX, subtitleTop + i * S.lineHeight)
-    )
+    ctx.fillText(S.text, S.x, S.y)
+    ctx.restore()
 
-    // Diagonal blue ticker strip. The SVG ships pre-rotated (rotation is
-    // baked into its internal <rect transform>), so we draw it as a flat
-    // image at the Figma container's top-left, preserving the file's
-    // natural aspect ratio so the text isn't vertically compressed.
+    // 5 — Rotated signature with the user's name. Script font, single
+    //     line, shrink-to-fit so long names still land inside the safe
+    //     area.
+    const NM = P.name
+    const displayName = (userData.name || "Your Name").trim()
+    ctx.save()
+    ctx.translate(NM.centerX, NM.centerY)
+    ctx.rotate((NM.rotation * Math.PI) / 180)
+    ctx.fillStyle = NM.color
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    fitOneLine(displayName, ctx, {
+        fontFamily: NM.fontFamily,
+        fontWeight: NM.fontWeight,
+        maxWidth: NM.maxWidth,
+        maxFontSize: NM.fontSize,
+        minFontSize: NM.minFontSize,
+    })
+    ctx.fillText(displayName, 0, 0)
+    ctx.restore()
+
+    // 6 — Grey ticker strip. The SVG ships pre-rotated (rotation is baked
+    //     into its internal <rect transform>), so we draw it as a flat
+    //     image at the Figma container's top-left, preserving the file's
+    //     natural aspect ratio so the text isn't vertically compressed.
     const TK = P.ticker
     if (logos.ticker) {
         const nw =
@@ -880,7 +984,7 @@ function renderPosterOverlay(
         const nh =
             (logos.ticker as HTMLImageElement).naturalHeight ||
             (logos.ticker as any).height
-        const drawH = nw && nh ? TK.w * (nh / nw) : TK.w * 0.2195
+        const drawH = nw && nh ? TK.w * (nh / nw) : TK.w * 0.2124
         ctx.drawImage(logos.ticker, TK.x, TK.y, TK.w, drawH)
     }
 }
@@ -888,7 +992,7 @@ function renderPosterOverlay(
 function drawPosterFrame(
     ctx: CanvasRenderingContext2D,
     mediaEl: HTMLCanvasElement | HTMLImageElement | HTMLVideoElement | null,
-    userData: { name: string; company: string },
+    userData: { name: string },
     logos: LogoSet
 ) {
     const P = POSTER_OVERLAY
@@ -915,18 +1019,18 @@ function composeOneFrame(
     finalCtx: CanvasRenderingContext2D,
     video: HTMLVideoElement,
     frameIndex: number,
-    oddsText: string,
+    slabText: string,
     W: number,
     H: number,
-    userData: { name: string; company: string },
+    userData: { name: string },
     logos: LogoSet,
     cutFrame: number
 ) {
     srcCtx.globalCompositeOperation = "source-over"
     srcCtx.globalAlpha = 1
     srcCtx.drawImage(video, 0, 0, W, H)
-    if (frameIndex < cutFrame && oddsText) {
-        drawSlabText(srcCtx, oddsText, W, H)
+    if (frameIndex < cutFrame && slabText) {
+        drawSlabText(srcCtx, slabText, W, H)
     }
     drawPosterFrame(finalCtx, srcCtx.canvas, userData, logos)
 }
@@ -934,7 +1038,7 @@ function composeOneFrame(
 async function processVideoToPoster(args: {
     video: HTMLVideoElement
     persona: ReturnType<typeof getComboConfig>
-    userData: { name: string; company: string; oddsText: string }
+    userData: { name: string; whatsStoppingYou: string }
     logos: LogoSet
     onProgress?: (p: number) => void
 }): Promise<{
@@ -949,7 +1053,8 @@ async function processVideoToPoster(args: {
         H = video.videoHeight
     const cutFrame = persona.textCutFrame ?? 45
     const fps = persona.videoFps ?? 24
-    const oddsText = (userData.oddsText || "").toUpperCase()
+    const slabText = (userData.whatsStoppingYou || "").toUpperCase()
+    const overlayUser = { name: userData.name }
 
     const srcCanvas = document.createElement("canvas")
     srcCanvas.width = W
@@ -988,10 +1093,10 @@ async function processVideoToPoster(args: {
         finalCtx,
         video,
         0,
-        oddsText,
+        slabText,
         W,
         H,
-        userData,
+        overlayUser,
         logos,
         cutFrame
     )
@@ -1028,10 +1133,10 @@ async function processVideoToPoster(args: {
                 finalCtx,
                 video,
                 frameIndex,
-                oddsText,
+                slabText,
                 W,
                 H,
-                userData,
+                overlayUser,
                 logos,
                 cutFrame
             )
@@ -1072,8 +1177,7 @@ type Status = "idle" | "loading" | "result" | "error"
 
 interface ComponentProps {
     name: string
-    company: string
-    odds: string
+    whatsStoppingYou: string
     avatar: AvatarKey
     weapon: WeaponKey
     start: boolean
@@ -1082,13 +1186,12 @@ interface ComponentProps {
     backgroundColor: string
 }
 
-export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
+export default function FutureFoundersGenerator(props: Partial<ComponentProps>) {
     const {
-        name = "Priyank Hegde",
-        company = "Razorpay",
-        odds = "YOU DON'T HAVE A DEGREE",
-        avatar = "male" as AvatarKey,
-        weapon = "punch" as WeaponKey,
+        name = "Avantika",
+        whatsStoppingYou = "YOU DON'T HAVE A DEGREE",
+        avatar = "female" as AvatarKey,
+        weapon = "smash" as WeaponKey,
         start = false,
         autoReset = true,
         accentColor = "#0039ff",
@@ -1136,14 +1239,16 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
                 ticker: tickerImg,
             }
             const persona = getComboConfig(avatar, weapon)
+            // Optional runtime bridge for Framer overlays that inject form
+            // values onto window. Falls back to component props.
             const bridge =
                 typeof window !== "undefined"
-                    ? (window as any).__brickForm
+                    ? (window as any).__futureFounderForm
                     : null
             const userData = {
                 name: bridge?.name || name,
-                company: bridge?.company || company,
-                oddsText: bridge?.odds || odds,
+                whatsStoppingYou:
+                    bridge?.whatsStoppingYou || whatsStoppingYou,
             }
             const result = await processVideoToPoster({
                 video,
@@ -1161,13 +1266,13 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
             setResultUrl(url)
             setStatus("result")
         } catch (err: any) {
-            console.error("[Founder's Brick] render failed:", err)
+            console.error("[Future Founder] render failed:", err)
             if (isMountedRef.current) {
                 setError(err.message || "Unknown error")
                 setStatus("error")
             }
         }
-    }, [name, company, odds, avatar, weapon])
+    }, [name, whatsStoppingYou, avatar, weapon])
 
     useEffect(() => {
         if (!prevStartRef.current && start && status === "idle") {
@@ -1190,7 +1295,7 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
     }, [start, status, autoReset, runPipeline, resultUrl])
 
     const ext = resultMime.includes("mp4") ? "mp4" : "webm"
-    const filename = `founders-brick-${(name || "founder")
+    const filename = `future-founder-${(name || "founder")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "")}.${ext}`
@@ -1215,8 +1320,8 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
             try {
                 await (navigator as any).share({
                     files: [file],
-                    title: "My Founder's Brick",
-                    text: "I broke the odds to build something. Break to Build × Razorpay.",
+                    title: "I'm a Future Founder",
+                    text: "I'm taking the pledge to beat the odds and build for India. Break to Build × Razorpay.",
                 })
             } catch { }
         } else {
@@ -1269,7 +1374,7 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
         return (
             <div style={container}>
                 <div style={{ fontSize: 18, fontWeight: 600 }}>
-                    Founder's Brick Generator
+                    Future Founder's Generator
                 </div>
                 <div style={subtle}>Waiting for the Generate signal…</div>
                 <div
@@ -1280,11 +1385,11 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
                         textAlign: "center",
                     }}
                 >
-                    name: {name || "—"} · company: {company || "—"}
+                    name: {name || "—"}
                     <br />
                     avatar: {avatar} · weapon: {weapon}
                     <br />
-                    odds: {odds || "—"}
+                    what's stopping you: {whatsStoppingYou || "—"}
                 </div>
             </div>
         )
@@ -1295,7 +1400,7 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
         return (
             <div style={container}>
                 <div style={{ fontSize: 22, fontWeight: 700 }}>
-                    Forging your brick…
+                    Pledging your future…
                 </div>
                 <div
                     style={{
@@ -1326,7 +1431,7 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
                 <div
                     style={{ color: "#ff6b6b", fontSize: 18, fontWeight: 700 }}
                 >
-                    Something broke while forging your brick.
+                    Something broke while taking your pledge.
                 </div>
                 <div style={subtle}>{error}</div>
                 <button
@@ -1375,22 +1480,16 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
 //  SECTION 5 — Framer Property Controls
 // ────────────────────────────────────────────────────────────────────────────
 
-addPropertyControls(FoundersBrickGenerator, {
+addPropertyControls(FutureFoundersGenerator, {
     name: {
         type: ControlType.String,
         title: "Name",
-        defaultValue: "Priyank Hegde",
+        defaultValue: "Avantika",
         placeholder: "Their name",
     },
-    company: {
+    whatsStoppingYou: {
         type: ControlType.String,
-        title: "Company",
-        defaultValue: "Razorpay",
-        placeholder: "Their company",
-    },
-    odds: {
-        type: ControlType.String,
-        title: "Odds Beaten",
+        title: "What's stopping you?",
         defaultValue: "YOU DON'T HAVE A DEGREE",
         placeholder: "Engraved on the rock",
     },
@@ -1399,7 +1498,7 @@ addPropertyControls(FoundersBrickGenerator, {
         title: "Avatar",
         options: ["male", "female"] as AvatarKey[],
         optionTitles: ["Male", "Female"],
-        defaultValue: "male",
+        defaultValue: "female",
     },
     weapon: {
         type: ControlType.Enum,
@@ -1413,7 +1512,7 @@ addPropertyControls(FoundersBrickGenerator, {
             "slice",
         ] as WeaponKey[],
         optionTitles: ["Punch", "Crush", "Thrash", "Smash", "Kick", "Slice"],
-        defaultValue: "punch",
+        defaultValue: "smash",
     },
     start: {
         type: ControlType.Boolean,
