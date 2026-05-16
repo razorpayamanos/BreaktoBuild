@@ -1,0 +1,6 @@
+framer/ShareableAsset.tsx
+  0f9d08d4-a9ae-473e-b06e-490647409cfd:2026-05-15T08:31:21.722Z 21
+  0f9d08d4-a9ae-473e-b06e-490647409cfd:2026-05-15T08:49:36.207Z 23-33,35-43
+  0f9d08d4-a9ae-473e-b06e-490647409cfd:2026-05-15T08:49:43.296Z 99
+---
+{"schema_version": "authorship/3.0.0", "base_commit_sha": "HEAD~1", "prompts": {"0f9d08d4-a9ae-473e-b06e-490647409cfd:2026-05-15T08:31:21.722Z": {"agent_id": {"tool": "claude_code", "model": ""}, "human_author": "o.aman@razorpay.com", "accepted_lines": 22, "overriden_lines": 0}, "0f9d08d4-a9ae-473e-b06e-490647409cfd:2026-05-15T08:49:36.207Z": {"agent_id": {"tool": "claude_code", "model": ""}, "human_author": "o.aman@razorpay.com", "accepted_lines": 22, "overriden_lines": 0}, "0f9d08d4-a9ae-473e-b06e-490647409cfd:2026-05-15T08:49:43.296Z": {"agent_id": {"tool": "claude_code", "model": ""}, "human_author": "o.aman@razorpay.com", "accepted_lines": 22, "overriden_lines": 0}}}
