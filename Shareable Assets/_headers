@@ -1,0 +1,8 @@
+# Cloudflare Pages CORS headers
+# Framer fetches generator.mjs and the Avatar MP4s from a different origin —
+# without these, the dynamic import and video element will fail with CORS errors.
+
+/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: *

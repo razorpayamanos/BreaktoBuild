@@ -288,7 +288,8 @@
       aspect-ratio: 840 / 500;
       height: auto;
       min-height: 0;
-      grid-template-columns: 422fr 418fr;  /* 314+108 left col, 379+39 right col */
+      grid-template-columns: 422fr 418fr;
+      /* 314+108 left col, 379+39 right col */
       /* --pscale is a UNITLESS multiplier set by JS from the rendered
          modal width / 840. Falls back to 1.286 (= 1080/840 at desktop).
          CSS can't compute a unitless ratio from a length-divided-by-length,
@@ -380,7 +381,9 @@
       pointer-events: none;
     }
 
-    .avatar-thumb.is-selected { outline-color: var(--accent); }
+    .avatar-thumb.is-selected {
+      outline-color: var(--accent);
+    }
 
     .avatar-thumb .check,
     .weapon-thumb .check {
@@ -401,7 +404,9 @@
     }
 
     .avatar-thumb.is-selected .check,
-    .weapon-thumb.is-selected .check { display: flex; }
+    .weapon-thumb.is-selected .check {
+      display: flex;
+    }
 
     /* Weapon grid — 3×2 thumbs, 80×80 each (scaled), 5.3px gap. Total grid
        width 250.55 + 14.45 slack = 265 (matches Figma frame). */
@@ -444,7 +449,9 @@
       pointer-events: none;
     }
 
-    .weapon-thumb.is-selected { outline-color: var(--accent); }
+    .weapon-thumb.is-selected {
+      outline-color: var(--accent);
+    }
 
     .weapon-label {
       position: absolute;
@@ -463,7 +470,9 @@
       line-height: 1.15;
     }
 
-    .weapon-thumb.is-selected .weapon-label { background: var(--accent); }
+    .weapon-thumb.is-selected .weapon-label {
+      background: var(--accent);
+    }
 
     /* ============================================================
        Vertical labels — children of .modal so they aren't clipped by
@@ -488,11 +497,14 @@
       z-index: 6;
     }
 
-    .modal[data-stage="persona"] .vert-side-label { display: block; }
+    .modal[data-stage="persona"] .vert-side-label {
+      display: block;
+    }
 
     .vert-side-label--left {
       top: 50%;
-      left: calc(54px * var(--pscale));            /* center of the 108px sidebar */
+      left: calc(54px * var(--pscale));
+      /* center of the 108px sidebar */
       font-size: calc(40px * var(--pscale));
       color: #b9bdc6;
       transform: translate(-50%, -50%) rotate(-90deg);
@@ -501,7 +513,8 @@
 
     .vert-side-label--right {
       top: 50%;
-      right: calc(19.5px * var(--pscale));         /* center of the 39px sidebar */
+      right: calc(19.5px * var(--pscale));
+      /* center of the 39px sidebar */
       font-size: calc(10px * var(--pscale));
       letter-spacing: 0.22em;
       font-family: var(--font-body);
@@ -532,11 +545,19 @@
       overflow: hidden;
     }
 
-    .modal[data-stage="persona"] .preview-avatar { display: block; }
-    .modal[data-stage="persona"] .preview-inner { display: none; }
+    .modal[data-stage="persona"] .preview-avatar {
+      display: block;
+    }
+
+    .modal[data-stage="persona"] .preview-inner {
+      display: none;
+    }
+
     /* Preview-pane background = modal-card white during persona stage so
        the 30/16 insets around .preview-avatar read as white frame. */
-    .modal[data-stage="persona"] .preview-pane { background: var(--bg-card); }
+    .modal[data-stage="persona"] .preview-pane {
+      background: var(--bg-card);
+    }
 
     /* "BRACE TO BREAK" tiled watermark — Figma stacks 7 lines at line-height
        0.65 of the font size. Font is large so they tile densely. */
@@ -581,7 +602,9 @@
     }
 
     .preview-avatar-asset:not([src]),
-    .preview-avatar-asset[src=""] { display: none; }
+    .preview-avatar-asset[src=""] {
+      display: none;
+    }
 
     /* PREVIEW chip — direct child of .preview-pane so it sits at the
        column's top-left corner (Figma modal-x=422, y=19). Hidden by
@@ -603,12 +626,15 @@
       z-index: 4;
     }
 
-    .modal[data-stage="persona"] .preview-avatar-eyebrow { display: inline-flex; }
+    .modal[data-stage="persona"] .preview-avatar-eyebrow {
+      display: inline-flex;
+    }
 
     .preview-avatar-ticker {
       position: absolute;
       left: 0;
-      right: 0;                              /* parent .preview-avatar already excludes the right sidebar */
+      right: 0;
+      /* parent .preview-avatar already excludes the right sidebar */
       bottom: 0;
       height: calc(28px * var(--pscale, 1));
       background: rgba(255, 255, 255, 0.07);
@@ -633,8 +659,13 @@
     }
 
     @keyframes ticker-scroll {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); }
+      from {
+        transform: translateX(0);
+      }
+
+      to {
+        transform: translateX(-50%);
+      }
     }
 
     /* NEXT button — direct child of .preview-pane. Figma puts it near
@@ -660,9 +691,18 @@
       transition: opacity .15s ease, transform .12s ease;
     }
 
-    .modal[data-stage="persona"] .picker-next { display: inline-flex; }
-    .picker-next:hover:not(:disabled) { transform: translateY(-1px); }
-    .picker-next:disabled { opacity: 0.45; cursor: not-allowed; }
+    .modal[data-stage="persona"] .picker-next {
+      display: inline-flex;
+    }
+
+    .picker-next:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    .picker-next:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
 
     /* ============================================================
        Glitch reveal — bottom-to-top scanline-ish wipe, fired on
@@ -672,14 +712,51 @@
        positioning now, so only the glitch jitter rides on transform.
        ============================================================ */
     @keyframes glitch-reveal {
-      0%   { clip-path: inset(100% 0 0 0); filter: hue-rotate(180deg) saturate(1.6) contrast(1.2); transform: translateX(-5px); }
-      12%  { clip-path: inset(86% 0 0 0); filter: hue-rotate(140deg); transform: translateX(4px); }
-      24%  { clip-path: inset(72% 0 0 0); filter: hue-rotate(80deg) saturate(1.3); transform: translateX(-3px); }
-      38%  { clip-path: inset(56% 0 0 0); filter: hue-rotate(30deg); transform: translateX(2px); }
-      52%  { clip-path: inset(40% 0 0 0); filter: none; transform: translateX(-2px); }
-      68%  { clip-path: inset(22% 0 0 0); transform: translateX(1px); }
-      84%  { clip-path: inset(8% 0 0 0); transform: translateX(-1px); }
-      100% { clip-path: inset(0 0 0 0); filter: none; transform: none; }
+      0% {
+        clip-path: inset(100% 0 0 0);
+        filter: hue-rotate(180deg) saturate(1.6) contrast(1.2);
+        transform: translateX(-5px);
+      }
+
+      12% {
+        clip-path: inset(86% 0 0 0);
+        filter: hue-rotate(140deg);
+        transform: translateX(4px);
+      }
+
+      24% {
+        clip-path: inset(72% 0 0 0);
+        filter: hue-rotate(80deg) saturate(1.3);
+        transform: translateX(-3px);
+      }
+
+      38% {
+        clip-path: inset(56% 0 0 0);
+        filter: hue-rotate(30deg);
+        transform: translateX(2px);
+      }
+
+      52% {
+        clip-path: inset(40% 0 0 0);
+        filter: none;
+        transform: translateX(-2px);
+      }
+
+      68% {
+        clip-path: inset(22% 0 0 0);
+        transform: translateX(1px);
+      }
+
+      84% {
+        clip-path: inset(8% 0 0 0);
+        transform: translateX(-1px);
+      }
+
+      100% {
+        clip-path: inset(0 0 0 0);
+        filter: none;
+        transform: none;
+      }
     }
 
     .preview-avatar-asset.glitch-in {
@@ -1112,17 +1189,27 @@
         gap: 8px;
       }
 
-      .avatar-thumb { width: auto; height: auto; aspect-ratio: 130/170; }
+      .avatar-thumb {
+        width: auto;
+        height: auto;
+        aspect-ratio: 130/170;
+      }
 
       .weapon-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 6px;
       }
 
-      .weapon-thumb { width: auto; height: auto; aspect-ratio: 1/1; }
+      .weapon-thumb {
+        width: auto;
+        height: auto;
+        aspect-ratio: 1/1;
+      }
 
       .vert-side-label,
-      .modal[data-stage="persona"] .vert-side-label { display: none; }
+      .modal[data-stage="persona"] .vert-side-label {
+        display: none;
+      }
 
       .heading-display {
         font-size: 30px;
@@ -1196,143 +1283,145 @@
       <button type="button" class="modal-close" id="modal-close" aria-label="Close">×</button>
       <div class="modal" role="document">
 
-      <!-- Decorative vertical labels (only shown during the persona stage,
+        <!-- Decorative vertical labels (only shown during the persona stage,
            positioned absolutely on the modal's left/right edges so they
            sit OUTSIDE .modal-content / .preview-pane and aren't clipped) -->
-      <span class="vert-side-label vert-side-label--left" aria-hidden="true">CLAIM YOUR MARK</span>
-      <span class="vert-side-label vert-side-label--right" aria-hidden="true">BREAK TO BUILD</span>
+        <span class="vert-side-label vert-side-label--left" aria-hidden="true">CLAIM YOUR MARK</span>
+        <span class="vert-side-label vert-side-label--right" aria-hidden="true">BREAK TO BUILD</span>
 
-      <section class="modal-content" id="modal-content">
+        <section class="modal-content" id="modal-content">
 
-        <!-- Stage 1: Avatar + Weapon picker (two-step) -->
-        <div class="stage stage-avatar is-active" data-stage="persona">
-          <section class="picker-step" data-step="avatar">
-            <span class="step-eyebrow">Step 01</span>
-            <h2 id="modal-heading" class="step-title">Pick your avatar</h2>
-            <div class="avatar-grid" id="avatar-grid" role="radiogroup" aria-label="Pick your avatar"></div>
-          </section>
+          <!-- Stage 1: Avatar + Weapon picker (two-step) -->
+          <div class="stage stage-avatar is-active" data-stage="persona">
+            <section class="picker-step" data-step="avatar">
+              <span class="step-eyebrow">Step 01</span>
+              <h2 id="modal-heading" class="step-title">Pick your avatar</h2>
+              <div class="avatar-grid" id="avatar-grid" role="radiogroup" aria-label="Pick your avatar"></div>
+            </section>
 
-          <section class="picker-step" data-step="weapon">
-            <span class="step-eyebrow">Step 02</span>
-            <h2 class="step-title">Choose your weapon</h2>
-            <div class="weapon-grid is-locked" id="weapon-grid" role="radiogroup" aria-label="Choose your weapon" aria-disabled="true"></div>
-          </section>
-        </div>
-
-        <!-- Stage 2: Form -->
-        <div class="stage stage-form" data-stage="form">
-          <h2 class="heading-display">You built against the odds.<br />Now let's make it official.</h2>
-          <form id="claim-form" class="form-fields" novalidate>
-            <div class="field-row">
-              <div class="field" data-field="name">
-                <label class="field-label" for="f-name">Name</label>
-                <input id="f-name" class="field-input" name="name" type="text" maxlength="30" autocomplete="name"
-                  required />
-              </div>
-              <div class="field-error" data-error-for="name"></div>
-            </div>
-            <div class="field-row">
-              <div class="field" data-field="company">
-                <label class="field-label" for="f-company">Company Name</label>
-                <input id="f-company" class="field-input" name="company" type="text" maxlength="40"
-                  autocomplete="organization" required />
-              </div>
-              <div class="field-error" data-error-for="company"></div>
-            </div>
-            <div class="field-row">
-              <div class="field" data-field="linkedin">
-                <label class="field-label" for="f-linkedin">Linkedin</label>
-                <input id="f-linkedin" class="field-input" name="linkedin" type="url"
-                  placeholder="linkedin.com/in/your-handle" autocomplete="url" required />
-              </div>
-              <div class="field-error" data-error-for="linkedin"></div>
-            </div>
-            <div class="field-row">
-              <div class="field" data-field="odds">
-                <label class="field-label" for="f-odds">Odds Beaten</label>
-                <input id="f-odds" class="field-input" name="odds" type="text" maxlength="40"
-                  placeholder="e.g. 1 IN 10,000" required />
-              </div>
-              <div class="field-error" data-error-for="odds"></div>
-            </div>
-          </form>
-          <div>
-            <button type="submit" form="claim-form" class="btn-primary is-wide" id="form-submit">Claim your
-              mark</button>
+            <section class="picker-step" data-step="weapon">
+              <span class="step-eyebrow">Step 02</span>
+              <h2 class="step-title">Choose your weapon</h2>
+              <div class="weapon-grid is-locked" id="weapon-grid" role="radiogroup" aria-label="Choose your weapon"
+                aria-disabled="true"></div>
+            </section>
           </div>
-        </div>
 
-        <!-- Stage 3: Loading -->
-        <div class="stage stage-loading" data-stage="loading">
-          <p class="loading-spark" id="loading-text">Forging your brick…</p>
-          <div class="loading-bar" aria-hidden="true"></div>
-          <p class="loading-stage-detail" id="loading-detail">Compositing first frame</p>
-        </div>
-
-        <!-- Stage 4: Result (left column — heading, description, CTAs) -->
-        <div class="stage stage-result" data-stage="result">
-          <h2 class="heading-display result-heading" id="result-heading">A Piece of the Odds.<br />Broken.</h2>
-          <p class="result-desc" id="result-desc">This marks your place among the people who built despite the odds, and
-            built forward for India.</p>
-          <div class="result-actions">
-            <button type="button" class="btn-share" id="result-share">Share and Inspire Others</button>
-            <div class="result-extras">
-              <button type="button" id="result-download">Download</button>
+          <!-- Stage 2: Form -->
+          <div class="stage stage-form" data-stage="form">
+            <h2 class="heading-display">You built against the odds.<br />Now let's make it official.</h2>
+            <form id="claim-form" class="form-fields" novalidate>
+              <div class="field-row">
+                <div class="field" data-field="name">
+                  <label class="field-label" for="f-name">Name</label>
+                  <input id="f-name" class="field-input" name="name" type="text" maxlength="30" autocomplete="name"
+                    required />
+                </div>
+                <div class="field-error" data-error-for="name"></div>
+              </div>
+              <div class="field-row">
+                <div class="field" data-field="company">
+                  <label class="field-label" for="f-company">Company Name</label>
+                  <input id="f-company" class="field-input" name="company" type="text" maxlength="40"
+                    autocomplete="organization" required />
+                </div>
+                <div class="field-error" data-error-for="company"></div>
+              </div>
+              <div class="field-row">
+                <div class="field" data-field="linkedin">
+                  <label class="field-label" for="f-linkedin">Linkedin</label>
+                  <input id="f-linkedin" class="field-input" name="linkedin" type="url"
+                    placeholder="linkedin.com/in/your-handle" autocomplete="url" required />
+                </div>
+                <div class="field-error" data-error-for="linkedin"></div>
+              </div>
+              <div class="field-row">
+                <div class="field" data-field="odds">
+                  <label class="field-label" for="f-odds">Odds Beaten</label>
+                  <input id="f-odds" class="field-input" name="odds" type="text" maxlength="40"
+                    placeholder="e.g. 1 IN 10,000" required />
+                </div>
+                <div class="field-error" data-error-for="odds"></div>
+              </div>
+            </form>
+            <div>
+              <button type="submit" form="claim-form" class="btn-primary is-wide" id="form-submit">Claim your
+                mark</button>
             </div>
           </div>
-        </div>
 
-      </section>
+          <!-- Stage 3: Loading -->
+          <div class="stage stage-loading" data-stage="loading">
+            <p class="loading-spark" id="loading-text">Forging your brick…</p>
+            <div class="loading-bar" aria-hidden="true"></div>
+            <p class="loading-stage-detail" id="loading-detail">Compositing first frame</p>
+          </div>
 
-      <!-- Preview pane (right column) — three views, toggled by stage:
+          <!-- Stage 4: Result (left column — heading, description, CTAs) -->
+          <div class="stage stage-result" data-stage="result">
+            <h2 class="heading-display result-heading" id="result-heading">A Piece of the Odds.<br />Broken.</h2>
+            <p class="result-desc" id="result-desc">This marks your place among the people who built despite the odds,
+              and
+              built forward for India.</p>
+            <div class="result-actions">
+              <button type="button" class="btn-share" id="result-share">Share and Inspire Others</button>
+              <div class="result-extras">
+                <button type="button" id="result-download">Download</button>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- Preview pane (right column) — three views, toggled by stage:
            1. .preview-avatar  → avatar workflow (idle/combo static, glitch-in)
            2. .preview-inner   → live brick preview during form/loading
            3. .preview-result  → generated video during result stage -->
-      <aside class="preview-pane" aria-hidden="true">
-        <!-- Avatar workflow view -->
-        <div class="preview-avatar" id="preview-avatar">
-          <div class="preview-avatar-watermark" aria-hidden="true">
-            <span>BRACE TO BREAK</span>
-            <span>BRACE TO BREAK</span>
-            <span>BRACE TO BREAK</span>
-            <span>BRACE TO BREAK</span>
-            <span>BRACE TO BREAK</span>
-            <span>BRACE TO BREAK</span>
-            <span>BRACE TO BREAK</span>
-            <span>BRACE TO BREAK</span>
-          </div>
-          <img class="preview-avatar-asset" id="preview-avatar-asset" alt="" />
-          <div class="preview-avatar-ticker" aria-hidden="true">
-            <div class="preview-avatar-ticker-track">
-              <span>BREAK TO BUILD</span><span>·</span>
-              <span>BREAK TO BUILD</span><span>·</span>
-              <span>BREAK TO BUILD</span><span>·</span>
-              <span>BREAK TO BUILD</span><span>·</span>
-              <span>BREAK TO BUILD</span><span>·</span>
-              <span>BREAK TO BUILD</span><span>·</span>
+        <aside class="preview-pane" aria-hidden="true">
+          <!-- Avatar workflow view -->
+          <div class="preview-avatar" id="preview-avatar">
+            <div class="preview-avatar-watermark" aria-hidden="true">
+              <span>BRACE TO BREAK</span>
+              <span>BRACE TO BREAK</span>
+              <span>BRACE TO BREAK</span>
+              <span>BRACE TO BREAK</span>
+              <span>BRACE TO BREAK</span>
+              <span>BRACE TO BREAK</span>
+              <span>BRACE TO BREAK</span>
+              <span>BRACE TO BREAK</span>
+            </div>
+            <img class="preview-avatar-asset" id="preview-avatar-asset" alt="" />
+            <div class="preview-avatar-ticker" aria-hidden="true">
+              <div class="preview-avatar-ticker-track">
+                <span>BREAK TO BUILD</span><span>·</span>
+                <span>BREAK TO BUILD</span><span>·</span>
+                <span>BREAK TO BUILD</span><span>·</span>
+                <span>BREAK TO BUILD</span><span>·</span>
+                <span>BREAK TO BUILD</span><span>·</span>
+                <span>BREAK TO BUILD</span><span>·</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- PREVIEW eyebrow chip + NEXT button live in .preview-pane (not
+          <!-- PREVIEW eyebrow chip + NEXT button live in .preview-pane (not
              .preview-avatar) because Figma places them at the column's
              top-left / bottom-right corners — OUTSIDE the inset preview
              frame. Only visible during the persona stage. -->
-        <span class="preview-avatar-eyebrow" aria-hidden="true">Preview</span>
-        <button type="button" class="picker-next" id="picker-next" disabled>NEXT</button>
+          <span class="preview-avatar-eyebrow" aria-hidden="true">Preview</span>
+          <button type="button" class="picker-next" id="picker-next" disabled>NEXT</button>
 
-        <!-- Live brick preview (form/loading stages) -->
-        <div class="preview-inner">
-          <p class="preview-prefix">thank you</p>
-          <h3 class="preview-name" id="preview-name">YOUR NAME<br />HERE</h3>
-          <p class="preview-suffix" id="preview-suffix">the odds you broke to build your company</p>
-          <img class="preview-base is-empty" id="preview-base" alt="" />
-          <span class="preview-label">Preview</span>
-        </div>
+          <!-- Live brick preview (form/loading stages) -->
+          <div class="preview-inner">
+            <p class="preview-prefix">thank you</p>
+            <h3 class="preview-name" id="preview-name">YOUR NAME<br />HERE</h3>
+            <p class="preview-suffix" id="preview-suffix">the odds you broke to build your company</p>
+            <img class="preview-base is-empty" id="preview-base" alt="" />
+            <span class="preview-label">Preview</span>
+          </div>
 
-        <!-- Result video (result stage) -->
-        <div class="preview-result" id="preview-result"></div>
-      </aside>
+          <!-- Result video (result stage) -->
+          <div class="preview-result" id="preview-result"></div>
+        </aside>
 
       </div>
     </div>
@@ -1370,7 +1459,7 @@
      * with verb-slugs — the table below bridges the two.
      */
     const AVATAR_CONFIG = {
-      male:   { label: 'Male',   thumb: 'Avatars/male/thumb.png',   idle: 'Avatars/male/Previews/Statics/idle.png' },
+      male: { label: 'Male', thumb: 'Avatars/male/thumb.png', idle: 'Avatars/male/Previews/Statics/idle.png' },
       female: { label: 'Female', thumb: 'Avatars/female/thumb.png', idle: 'Avatars/female/Previews/Statics/idle.png' },
     };
     const AVATAR_ORDER = ['male', 'female'];
@@ -1379,12 +1468,12 @@
     //   Row 1: PUNCH, CRUSH, THRASH    Row 2: SMASH, KICK, SLICE
     const WEAPON_ORDER = ['punch', 'crush', 'thrash', 'smash', 'kick', 'slice'];
     const WEAPON_CONFIG = {
-      smash:  { label: 'SMASH IT',  thumb: 'Weapons/smash.png',  finalSlug: 'bat'    },
-      crush:  { label: 'CRUSH IT',  thumb: 'Weapons/crush.png',  finalSlug: 'hammer' },
-      slice:  { label: 'SLICE IT',  thumb: 'Weapons/slice.png',  finalSlug: 'sword'  },
-      thrash: { label: 'THRASH IT', thumb: 'Weapons/thrash.png', finalSlug: 'flail'  },
-      kick:   { label: 'KICK IT',   thumb: 'Weapons/kick.png',   finalSlug: 'kick'   },
-      punch:  { label: 'PUNCH IT',  thumb: 'Weapons/punch.png',  finalSlug: 'punch'  },
+      smash: { label: 'SMASH IT', thumb: 'Weapons/smash.png', finalSlug: 'bat' },
+      crush: { label: 'CRUSH IT', thumb: 'Weapons/crush.png', finalSlug: 'hammer' },
+      slice: { label: 'SLICE IT', thumb: 'Weapons/slice.png', finalSlug: 'sword' },
+      thrash: { label: 'THRASH IT', thumb: 'Weapons/thrash.png', finalSlug: 'flail' },
+      kick: { label: 'KICK IT', thumb: 'Weapons/kick.png', finalSlug: 'kick' },
+      punch: { label: 'PUNCH IT', thumb: 'Weapons/punch.png', finalSlug: 'punch' },
     };
 
     /**
@@ -1395,10 +1484,14 @@
      * the filename remains the single source of truth.
      */
     const FINAL_VIDEO_PATHS = {
-      male:   { smash:'bat_35.mp4',   crush:'hammer_76.mp4', slice:'sword_34.mp4',
-                thrash:'flail_45.mp4', kick:'kick_42.mp4',    punch:'punch_70.mp4' },
-      female: { smash:'bat_39.mp4',   crush:'hammer_72.mp4', slice:'sword_36.mp4',
-                thrash:'flail_37.mp4', kick:'kick_35.mp4',    punch:'punch_59.mp4' },
+      male: {
+        smash: 'bat_35.mp4', crush: 'hammer_76.mp4', slice: 'sword_34.mp4',
+        thrash: 'flail_45.mp4', kick: 'kick_42.mp4', punch: 'punch_70.mp4'
+      },
+      female: {
+        smash: 'bat_39.mp4', crush: 'hammer_72.mp4', slice: 'sword_36.mp4',
+        thrash: 'flail_37.mp4', kick: 'kick_35.mp4', punch: 'punch_59.mp4'
+      },
     };
 
     /**
@@ -1410,10 +1503,10 @@
       const filename = FINAL_VIDEO_PATHS[avatar][weapon];
       const cutMatch = filename.match(/_(\d+)\.mp4$/);
       return {
-        label:        `${AVATAR_CONFIG[avatar].label} · ${WEAPON_CONFIG[weapon].label}`,
-        baseVideo:    `Avatars/${avatar}/Final/${filename}`,
+        label: `${AVATAR_CONFIG[avatar].label} · ${WEAPON_CONFIG[weapon].label}`,
+        baseVideo: `Avatars/${avatar}/Final/${filename}`,
         textCutFrame: cutMatch ? parseInt(cutMatch[1], 10) : 45,
-        videoFps:     24,
+        videoFps: 24,
       };
     }
 
@@ -2304,7 +2397,7 @@
         if (w.length >= hyphenateAt) {
           const splitAt = Math.ceil(w.length / 2);
           tokens.push({ word: w.slice(0, splitAt) + '-', forceBreakAfter: true });
-          tokens.push({ word: w.slice(splitAt),          forceBreakAfter: false });
+          tokens.push({ word: w.slice(splitAt), forceBreakAfter: false });
         } else {
           tokens.push({ word: w, forceBreakAfter: false });
         }

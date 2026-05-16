@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Break to Build · Generator harness</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;700&family=Special+Gothic+Condensed+One&family=Unbounded:wght@400;900&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --panel: #161616;
+      --border: #2a2a2a;
+      --text: #e8e8e8;
+      --muted: #8a8a8a;
+      --accent: #0039ff;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 32px;
+    }
+
+    h1 {
+      grid-column: 1 / -1;
+      margin: 0 0 8px;
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 900;
+      font-size: 28px;
+      letter-spacing: -1px;
+    }
+    .lead {
+      grid-column: 1 / -1;
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 720px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 14px 0 6px;
+    }
+    label:first-child { margin-top: 0; }
+
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      background: #0d0d0d;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px 16px;
+      background: var(--accent);
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      font: inherit;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .preview {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 540px;
+    }
+    .preview video {
+      width: 100%;
+      max-width: 432px;
+      aspect-ratio: 1080 / 1350;
+      background: #000;
+      border-radius: 8px;
+    }
+    .preview-empty {
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .status {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      min-height: 18px;
+    }
+    .status.error { color: #ff6b6b; }
+
+    .download-row {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 432px;
+    }
+    .download-row a {
+      flex: 1;
+      padding: 10px 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      text-align: center;
+      text-decoration: none;
+      font-size: 13px;
+    }
+
+    @media (max-width: 800px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Generator harness</h1>
+    <p class="lead">
+      Local smoke test for <code>generator.mjs</code>. The Framer Code Component
+      calls the same <code>generateAsset()</code> function with the same inputs —
+      if a video renders here, it'll render in Framer too. Edit the fields, hit
+      Generate, and the output appears on the right.
+    </p>
+
+    <section class="panel">
+      <label for="f-name">Name</label>
+      <input id="f-name" type="text" value="AMAN" />
+
+      <label for="f-company">Company</label>
+      <input id="f-company" type="text" value="Razorpay" />
+
+      <label for="f-odds">Odds beaten</label>
+      <input id="f-odds" type="text" value="THE ODDS BEATEN" />
+
+      <label for="f-avatar">Avatar</label>
+      <select id="f-avatar">
+        <option value="female" selected>female</option>
+        <option value="male">male</option>
+      </select>
+
+      <label for="f-weapon">Weapon</label>
+      <select id="f-weapon">
+        <option value="smash" selected>smash</option>
+        <option value="crush">crush</option>
+        <option value="slice">slice</option>
+        <option value="thrash">thrash</option>
+        <option value="kick">kick</option>
+        <option value="punch">punch</option>
+      </select>
+
+      <label for="f-base">Asset base URL</label>
+      <input id="f-base" type="text" value="." />
+
+      <button id="generate" type="button">Generate video</button>
+    </section>
+
+    <section class="preview" id="preview">
+      <div class="preview-empty" id="preview-empty">
+        The generated 1080×1350 video appears here.
+      </div>
+      <div class="status" id="status"></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { generateAsset } from './generator.mjs';
+
+    const $ = (id) => document.getElementById(id);
+    const btn = $('generate');
+    const preview = $('preview');
+    const previewEmpty = $('preview-empty');
+    const status = $('status');
+
+    let lastObjectUrl = null;
+
+    btn.addEventListener('click', async () => {
+      const input = {
+        name:     $('f-name').value.trim(),
+        company:  $('f-company').value.trim(),
+        oddsText: $('f-odds').value.trim(),
+        avatar:   $('f-avatar').value,
+        weapon:   $('f-weapon').value,
+        assetBaseUrl: $('f-base').value.trim() || '.',
+      };
+
+      if (lastObjectUrl) { URL.revokeObjectURL(lastObjectUrl); lastObjectUrl = null; }
+      preview.querySelectorAll('video, .download-row').forEach(n => n.remove());
+      previewEmpty.style.display = '';
+      previewEmpty.textContent = 'Rendering…';
+      status.classList.remove('error');
+      status.textContent = '';
+      btn.disabled = true;
+
+      try {
+        const { blob, mimeType, frameCount } = await generateAsset({
+          ...input,
+          onProgress: (p) => { status.textContent = `Rendering · ${Math.round(p * 100)}%`; },
+        });
+
+        lastObjectUrl = URL.createObjectURL(blob);
+        previewEmpty.style.display = 'none';
+
+        const video = document.createElement('video');
+        video.src = lastObjectUrl;
+        video.controls = true;
+        video.autoplay = true;
+        video.loop = true;
+        video.playsInline = true;
+        preview.insertBefore(video, status);
+
+        const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+        const download = document.createElement('div');
+        download.className = 'download-row';
+        download.innerHTML = `<a href="${lastObjectUrl}" download="break-to-build.${ext}">Download .${ext}</a>`;
+        preview.insertBefore(download, status);
+
+        status.textContent = `${frameCount} frames · ${(blob.size / 1024).toFixed(0)} KB · ${mimeType}`;
+      } catch (err) {
+        console.error(err);
+        previewEmpty.style.display = '';
+        previewEmpty.textContent = 'Something went wrong — check the console.';
+        status.classList.add('error');
+        status.textContent = err.message || String(err);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
