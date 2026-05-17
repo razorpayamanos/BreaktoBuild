@@ -45,17 +45,17 @@ const WEAPON_CONFIG: Record<WeaponKey, { label: string }> = {
 const FINAL_VIDEO_PATHS: Record<AvatarKey, Record<WeaponKey, string>> = {
     male: {
         smash: "bat_35.mp4",
-        crush: "hammer_76.mp4",
+        crush: "hammer_37.mp4",
         slice: "sword_34.mp4",
         thrash: "flail_45.mp4",
-        kick: "kick_42.mp4",
+        kick: "kick_48.mp4",
         punch: "punch_70.mp4",
     },
     female: {
         smash: "bat_39.mp4",
         crush: "hammer_72.mp4",
         slice: "sword_36.mp4",
-        thrash: "flail_37.mp4",
+        thrash: "flail_38.mp4",
         kick: "kick_35.mp4",
         punch: "punch_59.mp4",
     },
