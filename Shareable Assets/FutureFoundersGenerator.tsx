@@ -89,20 +89,80 @@ function getComboConfig(avatar: AvatarKey, weapon: WeaponKey) {
  * inside a 1080×1350 canvas — those are the bounds we wrap against. After
  * the rotation + skew below, the rendered visual fans out into the larger
  * TextBox parallelogram (243×257 at 321.36, 699.9).
+ *
+ * ── Text-wrapping rules (knobs below) ──────────────────────────────────
+ *   RULE 1  font stays at `maxFontSize` UNLESS wrap > `maxLines` lines.
+ *           Only then do we scale DOWN, never up.
+ *   RULE 2  any word with ≥ `hyphenateMinLength` characters is split at
+ *           the midpoint with a trailing "-" and forced onto the next line.
+ *   RULE 3  input is hard-truncated to `maxInputChars` characters before
+ *           the wrap algorithm sees it.
+ *   RULE 4  per-line character cap. During greedy packing, if adding the
+ *           next word would push the line past `maxCharsPerLine` characters
+ *           (incl. the joining space), break BEFORE that word. Single
+ *           tokens longer than the cap (e.g. a hyphenation fragment for a
+ *           15+ char word) still get their own line and may overflow.
+ *   RULE 5  short-line override. If the max-font wrap exceeds RULE 1's
+ *           line cap BUT every line is shorter than `narrowLineThreshold`
+ *           characters, KEEP max font anyway. Capped at
+ *           `overflowLineThreshold` lines so deep-overflow wraps don't
+ *           get stuck at max font.
+ *   RULE 6  deep-overflow floor. Fires in TWO independent ways:
+ *           (a) post-fallback — after RULE 1's binary search bottoms out
+ *               at `minFontSize`, if the wrap STILL exceeds
+ *               `overflowLineThreshold` lines.
+ *           (b) early — input text length > `overflowInputCharThreshold`
+ *               (e.g. 29 or 30 chars). Bypasses RULES 1 + 5.
+ *           Either way the chosen font is `overflowMinFontSize`,
+ *           independent of `minFontSize` so typical wraps don't shrink.
+ *
+ * RULE 4 makes the wrap effectively size-invariant: shrinking the font
+ * does NOT reduce line count, so inputs that wrap to > maxLines here will
+ * scale all the way down to minFontSize and accept the overflow. If you
+ * want bigger text for 4-line wraps, raise maxLines to 4 — not a font tweak.
+ *
+ * See `wrapAndFit` for the algorithm; see the slabText prep site in
+ * processVideoToPoster for the input truncation.
  */
 const SLAB_CONFIG = {
     // Centre of the text block, as a fraction of video frame (x, y).
     // ↑x = moves text right, ↓x = left. ↑y = down, ↓y = up.
     // wrapper centre: (338 + 197/2, 704 + 211/2) / (1080, 1350)
-    textAnchor: { x: 0.4142, y: 0.6296 },
+    textAnchor: { x: 0.4142, y: 0.6136 },
     textMaxWidth: 0.1824, // 197 / 1080
     textMaxHeight: 0.1563, // 211 / 1350
 
-    // Lowest font size (px) the auto-fit will accept before allowing
-    // overflow. Prevents long text from shrinking to an unreadable size —
-    // anything bigger than the box at this floor will spill past
-    // textMaxHeight, and the hard clip polygon catches the overflow.
-    minFontSize: 32,
+    // RULE 1 — font sizing bounds + the line-count threshold that
+    // triggers scale-down.
+    maxFontSize: 70, // upper bound — engraving never grows past this
+    minFontSize: 58, // lower bound — won't shrink below this even on overflow
+    maxLines: 4, // wrap > maxLines triggers binary-search downward
+
+    // RULE 2 — hyphenate words this long or longer.
+    hyphenateMinLength: 8,
+
+    // RULE 3 — hard cap on user-supplied text length.
+    maxInputChars: 30,
+
+    // RULE 4 — per-line character budget (incl. spaces).
+    maxCharsPerLine: 8,
+
+    // RULE 5 — short-line override. When the max-font wrap exceeds
+    // maxLines BUT every resulting line is < narrowLineThreshold chars,
+    // keep max font anyway. Raise to disable the override more often,
+    // lower to be more permissive (accept "wider" lines under the override).
+    narrowLineThreshold: 7,
+
+    // RULE 6 — deep-overflow floor. Two independent triggers; either
+    // one drops the chosen size to `overflowMinFontSize` (smaller than
+    // minFontSize) so the taller text block has room inside the slab.
+    //   • lines-based  → wrap STILL exceeds `overflowLineThreshold`
+    //                    lines even after binary search hits minFontSize.
+    //   • length-based → input length > `overflowInputCharThreshold`.
+    //                    Early-fires, bypassing RULES 1 + 5.
+    overflowLineThreshold: 5,
+    overflowMinFontSize: 52,
+    overflowInputCharThreshold: 28,
 
     // Type
     fontFamily: "'Special Gothic Condensed One', 'Anton', sans-serif",
@@ -116,12 +176,6 @@ const SLAB_CONFIG = {
     lineHeight: 0.8, // figma: leading-[0.8]
     letterSpacing: -0.02, // em — figma: tracking-[-0.4331px] @ 21.654px
     textAlign: "left" as CanvasTextAlign,
-
-    // Hyphenation — if a single word is >= this many characters, the
-    // wrapper splits it in half with a trailing hyphen and pushes the
-    // remainder to the next line. Prevents long words (e.g. "COMPLETELY")
-    // from punching past the slab safe area. Set to 0 / Infinity to disable.
-    hyphenateMinLength: 8,
 
     compositeMode: "overlay" as GlobalCompositeOperation, // figma: mix-blend-overlay
     // 0–1 — applied AFTER the overlay blend; lowers engraving strength.
@@ -495,22 +549,25 @@ function getNoisePattern(
 }
 
 /**
- * Greedy word-wrap: pack as many whole words onto each line as fit within
- * `maxWidth` at the context's CURRENT font setting. Standard text-flow
- * algorithm — produces minimum-line-count wraps for whatever font size
- * we're testing.
+ * Greedy word-wrap with two cap dimensions:
+ *   • Pixel width  — `maxWidth` measured via ctx.measureText
+ *   • Char count   — `maxCharsPerLine` (RULE 4, defaults to Infinity)
  *
- * Hyphenation pass: any word with >= hyphenateAt characters is split into
- * two pieces at the midpoint. The first piece carries a trailing "-" and
- * is flagged `forceBreakAfter` so the greedy pass below ends the line on
- * it — guaranteeing the remainder lands on the next line (per the design
- * rule).
+ * A new token is appended to the current line only if BOTH caps still
+ * hold. Single tokens that exceed either cap alone (e.g. a long
+ * hyphenation fragment) still get their own line and may overflow —
+ * the slab clip polygon contains the visual damage.
+ *
+ * Hyphenation (RULE 2): any input word ≥ hyphenateAt chars is pre-
+ * split at its midpoint into "first-half-" + "second-half", with the
+ * first piece marked forceBreakAfter so it always ends a line.
  */
 function wrapGreedy(
     text: string,
     ctx: CanvasRenderingContext2D,
     maxWidth: number,
-    hyphenateAt = Infinity
+    hyphenateAt = Infinity,
+    maxCharsPerLine = Infinity
 ): string[] {
     const rawWords = (text || "").split(/\s+/).filter(Boolean)
     if (rawWords.length === 0) return [text || ""]
@@ -531,7 +588,9 @@ function wrapGreedy(
     let cur = ""
     for (const t of tokens) {
         const tryLine = cur ? cur + " " + t.word : t.word
-        if (ctx.measureText(tryLine).width <= maxWidth) cur = tryLine
+        const fitsPixels = ctx.measureText(tryLine).width <= maxWidth
+        const fitsChars = tryLine.length <= maxCharsPerLine
+        if (fitsPixels && fitsChars) cur = tryLine
         else {
             if (cur) lines.push(cur)
             cur = t.word
@@ -546,15 +605,25 @@ function wrapGreedy(
 }
 
 /**
- * Binary-search the LARGEST font size at which a greedy word-wrap of `text`
- * fits inside (maxWidth × maxHeight). Returns the lines AND the chosen font
- * size together — they're computed against the same font, so they stay
- * consistent.
+ * RULE 1 — keep the font at `maxFontSize` as long as the greedy wrap
+ * (with hyphenation pre-applied per RULE 2 and char-cap per RULE 4)
+ * produces ≤ `maxLines` lines. Only when the wrap requires MORE than
+ * `maxLines` lines do we walk the font size DOWN — binary-searching for
+ * the largest size that still fits in ≤ `maxLines` lines, with
+ * `minFontSize` as the floor.
  *
- * Bounded below by `minFontSize` so long inputs don't shrink to an
- * unreadable size: if even the minimum doesn't fit the box, we accept the
- * overflow rather than going smaller. The hard clip polygon (= TextBox
- * bounds) catches anything that would otherwise leak past the safe area.
+ * RULE 5 overrides the scale-down when every line is narrower than
+ * `narrowLineThreshold` chars (capped at `overflowLineThreshold` lines so
+ * deep-overflow wraps don't get stuck at max font).
+ *
+ * RULE 6 fires either early (input length > overflowInputCharThreshold,
+ * bypassing RULES 1+5) or late (wrap still > overflowLineThreshold lines
+ * after the binary search bottoms out at minFontSize). In both cases the
+ * chosen size drops to `overflowMinFontSize`, independent of minFontSize.
+ *
+ * Width / height overflow at the chosen size is tolerated — the slab clip
+ * polygon catches anything that escapes the safe area. The fit math is
+ * LINE-COUNT driven, not pixel-rect driven.
  *
  * NOTE: rotation / skewX / skewY / textAlign are accepted on this options
  * shape for API compatibility (call sites pass them) but are deliberately
@@ -579,6 +648,12 @@ function wrapAndFit(
         minFontSize?: number
         maxFontSize?: number
         hyphenateMinLength?: number
+        maxLines?: number
+        maxCharsPerLine?: number
+        narrowLineThreshold?: number
+        overflowLineThreshold?: number
+        overflowMinFontSize?: number
+        overflowInputCharThreshold?: number
         // Accepted for API compatibility; not used by the fit math. See
         // the doc-block above for why.
         rotation?: number
@@ -591,25 +666,74 @@ function wrapAndFit(
         fontFamily,
         fontWeight,
         maxWidth,
-        maxHeight,
-        lineHeight,
         letterSpacing,
         minFontSize = 30,
         maxFontSize = 70,
         hyphenateMinLength = Infinity,
+        maxLines = 3,
+        maxCharsPerLine = Infinity,
+        narrowLineThreshold = 0,
+        overflowLineThreshold = Infinity,
+        overflowMinFontSize = 0,
+        overflowInputCharThreshold = Infinity,
     } = opts
+
+    const applyFont = (size: number) => {
+        ctx.font = `${fontWeight} ${size}px ${fontFamily}`
+        if ("letterSpacing" in ctx)
+            (ctx as any).letterSpacing = `${letterSpacing * size}px`
+    }
+    const wrap = () =>
+        wrapGreedy(text, ctx, maxWidth, hyphenateMinLength, maxCharsPerLine)
+
+    // RULE 6 (early-fire) — long inputs always render at the deep-
+    // overflow floor, bypassing RULES 1 + 5. This catches the case
+    // where a 29/30-char text wraps to ≤ 5 lines (so RULE 5 might
+    // otherwise keep it at max font) but the line block is still
+    // tall enough to clip the slab vertically.
+    if (
+        overflowMinFontSize > 0 &&
+        text &&
+        text.length > overflowInputCharThreshold
+    ) {
+        applyFont(overflowMinFontSize)
+        return { fontSize: overflowMinFontSize, lines: wrap() }
+    }
+
+    // Try the design's intended max size first.
+    applyFont(maxFontSize)
+    const linesAtMax = wrap()
+    // RULE 1 — within the line cap, keep max font.
+    if (linesAtMax.length <= maxLines) {
+        return { fontSize: maxFontSize, lines: linesAtMax }
+    }
+    // RULE 5 — short-line override. Even if we blew past maxLines,
+    // keep max font when every line is narrower than the threshold.
+    // BUT: cap this override at `overflowLineThreshold` so we don't
+    // steal RULE 6's territory — deep-overflow (6+ line) wraps must
+    // be allowed to scale down to overflowMinFontSize even when every
+    // line happens to be narrow.
+    if (
+        narrowLineThreshold > 0 &&
+        linesAtMax.length <= overflowLineThreshold &&
+        linesAtMax.every((l) => l.length < narrowLineThreshold)
+    ) {
+        return { fontSize: maxFontSize, lines: linesAtMax }
+    }
+
+    // Wrap exceeded maxLines at max font — binary-search downward for the
+    // largest size that still fits in ≤ maxLines. NOTE: with RULE 4 in
+    // play, the wrap is mostly character-driven, so shrinking the font
+    // rarely changes line count — this loop typically converges on
+    // minFontSize when it runs at all.
     let lo = minFontSize,
-        hi = maxFontSize
+        hi = maxFontSize - 1
     let best: { fontSize: number; lines: string[] } | null = null
     while (lo <= hi) {
         const mid = Math.floor((lo + hi) / 2)
-        ctx.font = `${fontWeight} ${mid}px ${fontFamily}`
-        if ("letterSpacing" in ctx)
-            (ctx as any).letterSpacing = `${letterSpacing * mid}px`
-        const lines = wrapGreedy(text, ctx, maxWidth, hyphenateMinLength)
-        const widest = Math.max(...lines.map((l) => ctx.measureText(l).width))
-        const totalH = lines.length * lineHeight * mid
-        if (widest <= maxWidth && totalH <= maxHeight) {
+        applyFont(mid)
+        const lines = wrap()
+        if (lines.length <= maxLines) {
             best = { fontSize: mid, lines }
             lo = mid + 1
         } else {
@@ -617,13 +741,26 @@ function wrapAndFit(
         }
     }
     if (best) return best
-    ctx.font = `${fontWeight} ${minFontSize}px ${fontFamily}`
-    if ("letterSpacing" in ctx)
-        (ctx as any).letterSpacing = `${letterSpacing * minFontSize}px`
-    return {
-        fontSize: minFontSize,
-        lines: wrapGreedy(text, ctx, maxWidth, hyphenateMinLength),
+
+    // Even at minFontSize we exceed maxLines — accept the overflow.
+    // The hard clip polygon will visually contain it.
+    applyFont(minFontSize)
+    const fallbackLines = wrap()
+
+    // RULE 6 — deep-overflow floor. If the wrap is STILL longer than
+    // `overflowLineThreshold` lines at minFontSize, drop the floor to
+    // `overflowMinFontSize` so the (much taller) text block has room
+    // to fit inside the slab. Only kicks in when overflowMinFontSize
+    // is configured AND it's actually smaller than minFontSize.
+    if (
+        overflowMinFontSize > 0 &&
+        overflowMinFontSize < minFontSize &&
+        fallbackLines.length > overflowLineThreshold
+    ) {
+        applyFont(overflowMinFontSize)
+        return { fontSize: overflowMinFontSize, lines: wrap() }
     }
+    return { fontSize: minFontSize, lines: fallbackLines }
 }
 
 /**
@@ -677,7 +814,14 @@ function renderSlabLayerInto(
         lineHeight: C.lineHeight,
         letterSpacing: C.letterSpacing,
         minFontSize: C.minFontSize ?? 30,
+        maxFontSize: C.maxFontSize ?? 70,
         hyphenateMinLength: C.hyphenateMinLength ?? Infinity,
+        maxLines: C.maxLines ?? 3,
+        maxCharsPerLine: C.maxCharsPerLine ?? Infinity,
+        narrowLineThreshold: C.narrowLineThreshold ?? 0,
+        overflowLineThreshold: C.overflowLineThreshold ?? Infinity,
+        overflowMinFontSize: C.overflowMinFontSize ?? 0,
+        overflowInputCharThreshold: C.overflowInputCharThreshold ?? Infinity,
         rotation: C.rotation,
         skewX: C.skewX,
         skewY: C.skewY,
@@ -1053,7 +1197,13 @@ async function processVideoToPoster(args: {
         H = video.videoHeight
     const cutFrame = persona.textCutFrame ?? 45
     const fps = persona.videoFps ?? 24
-    const slabText = (userData.whatsStoppingYou || "").toUpperCase()
+    // RULE 3 — hard truncate user input to SLAB_CONFIG.maxInputChars
+    // before it ever reaches the wrap algorithm. The cache key in
+    // getSlabTextLayer already includes the post-trunc text, so caching
+    // remains correct.
+    const slabText = (userData.whatsStoppingYou || "")
+        .toUpperCase()
+        .slice(0, SLAB_CONFIG.maxInputChars ?? 30)
     const overlayUser = { name: userData.name }
 
     const srcCanvas = document.createElement("canvas")
