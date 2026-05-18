@@ -234,17 +234,35 @@ const POSTER_OVERLAY = {
     },
     // Diagonal "ODDS BEATEN / FUTURE FOUNDER" strip — pre-rotated SVG.
     tickerImage: { src: `${R2_BASE}/Avatars/Ticker_Blue.svg` },
+    // Title stack — Figma frames 4313:10 (2-line name) + 4313:95 (1-line
+    // name). Behaves like ONE auto-layout group: total stack height grows
+    // when the name wraps from 1 line to 2 lines (or when the subtitle
+    // wraps further), and the WHOLE group re-centres on `title.anchorY`
+    // so a 1-line name and a 2-line name share the same imaginary middle
+    // point. See renderPosterOverlay() for the algorithm.
     title: {
         centerX: 540,
-        top: 79.55,
+        // Y centre of the WHOLE title group (eyebrow + name + subtitle).
+        // ~80 figma units × 2.943 = 235 canvas px. Tuned so the 2-line
+        // name case in Figma node 4313:10 matches its original top=27.19
+        // figma units; the 1-line case auto-recenters around the same
+        // anchor.
+        anchorY: 235,
         eyebrow: {
             text: "THANK YOU",
             fontFamily: "Unbounded",
             fontWeight: 400,
             fontSize: 32.729,
+            // Figma leading-[21.803px] → 21.803 × 2.943 ≈ 64.16. This
+            // is the line-box height for vertical layout; fontSize is
+            // the cap height inside it. The glyphs render in the middle
+            // of the line box (textBaseline="middle" at start + lineHeight/2).
+            lineHeight: 64.16,
             letterSpacing: -1.31,
         },
-        eyebrowToNameGap: 25,
+        // Vertical gap between bottom of eyebrow line-box and top of
+        // name. Figma: 3.0 figma units × 2.943 ≈ 8.83 canvas px.
+        eyebrowToNameGap: 9,
         name: {
             fontFamily: "Unbounded",
             fontWeight: 900,
@@ -253,7 +271,10 @@ const POSTER_OVERLAY = {
             letterSpacing: -3.79,
             maxWidth: 1020,
         },
-        nameToSubtitleGap: 18,
+        // Vertical gap between bottom of name (last name line) and top
+        // of subtitle. Figma: ~7 figma units × 2.943 ≈ 20.6 canvas px;
+        // averaged between the two design variants.
+        nameToSubtitleGap: 22,
         subtitle: {
             prefix: "FOR BEATING THE ODDS AND BUILDING ",
             fontFamily: "Unbounded",
@@ -906,13 +927,40 @@ function drawSlabText(
     ctx.restore()
 }
 
+/**
+ * Trim 3-word names to first + last (drop the middle word).
+ * "Aman Oasis Singh" → "Aman Singh". Names with 1, 2, or 4+ words are
+ * returned unchanged.
+ *
+ * Rationale: long middle names blow past `name.maxWidth` and force a
+ * 2-line wrap even when first + last alone would have fit on one line —
+ * the banner reads cleaner with two-word names. Applied only to the
+ * exact 3-word case to keep behaviour predictable for hyphenated
+ * surnames and longer pen-names.
+ */
+function trimNameForDisplay(name: string): string {
+    const parts = (name || "").trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 3) return `${parts[0]} ${parts[2]}`
+    return name
+}
+
+/**
+ * Name wrap: prefer ONE line. Only split into two lines when the full
+ * name overflows `maxW` at the configured font. When we do split, pick
+ * the space closest to the middle for a balanced 2-line stack (matches
+ * the Figma reference for long names like "MATT CHITHRANJAN"). Short
+ * names with spaces ("AMAN O S") stay on one line — same as Figma node
+ * 4313:95.
+ */
 function wrapPosterName(
     name: string,
     ctx: CanvasRenderingContext2D,
     maxW: number
 ) {
-    if (ctx.measureText(name).width <= maxW && !name.includes(" "))
-        return [name]
+    // Fits on one line — never split, regardless of spaces.
+    if (ctx.measureText(name).width <= maxW) return [name]
+    // No space to break on — accept the overflow rather than splitting
+    // mid-word; the renderer doesn't auto-fit the name (yet).
     if (!name.includes(" ")) return [name]
     const mid = Math.floor(name.length / 2)
     let splitIdx = -1,
@@ -947,6 +995,25 @@ function wrapPosterSubtitle(
     return lines
 }
 
+/**
+ * Centre-anchored title-stack renderer.
+ *
+ * The eyebrow + name + subtitle behave like a SINGLE auto-layout group:
+ * total stack height grows when the name wraps to 2 lines or the
+ * subtitle wraps further, and the WHOLE group re-centres on
+ * `title.anchorY` so a 1-line name and a 2-line name share the same
+ * imaginary middle point (visible in Figma nodes 4313:10 vs 4313:95).
+ *
+ * Algorithm:
+ *   1. Pre-measure each block's height with its real line count.
+ *   2. Sum: H = eyebrow.lineHeight + g1 + nLines×n.lh + g2 + sLines×s.lh
+ *   3. startY = anchorY − H/2  (top of eyebrow's line-box)
+ *   4. Render top-down from startY with the per-block heights as the
+ *      step. Each block uses textBaseline appropriate to its layout:
+ *        • eyebrow: "middle" inside the eyebrow line-box
+ *        • name / subtitle: "top" at the block start (line-height is
+ *          the step, not a centred line-box)
+ */
 function renderPosterOverlay(
     ctx: CanvasRenderingContext2D,
     userData: { name: string; company: string },
@@ -968,34 +1035,27 @@ function renderPosterOverlay(
         ctx.drawImage(logos.campaign, CL.x, CL.y, CL.w, CL.h)
     }
 
-    // Title stack
+    // ── Pre-measure the stack ────────────────────────────────────────
+    // Block 1 — eyebrow (always single-line "THANK YOU"): height = its
+    // configured line-box height (lineHeight), not fontSize. Glyphs are
+    // vertically centred inside that box.
+    const eyebrowH = T.eyebrow.lineHeight || T.eyebrow.fontSize
+
+    // Block 2 — name. Apply the 3-word → first+last trim before wrapping,
+    // then wrap against `name.maxWidth`. nameLines decides the block's
+    // height (lines × lineHeight).
     ctx.fillStyle = P.textColor
     ctx.textAlign = "center"
-    ctx.textBaseline = "top"
-
-    const E = T.eyebrow
-    ctx.font = `${E.fontWeight} ${E.fontSize}px '${E.fontFamily}', sans-serif`
-    if ("letterSpacing" in ctx)
-        (ctx as any).letterSpacing = `${E.letterSpacing}px`
-    const eyebrowTop = T.top
-    ctx.fillText(E.text, T.centerX, eyebrowTop)
-    const eyebrowBottom = eyebrowTop + E.fontSize
-
     const N = T.name
     ctx.font = `${N.fontWeight} ${N.fontSize}px '${N.fontFamily}', sans-serif`
     if ("letterSpacing" in ctx)
         (ctx as any).letterSpacing = `${N.letterSpacing}px`
-    const nameLines = wrapPosterName(
-        (name || "YOUR NAME").toUpperCase(),
-        ctx,
-        N.maxWidth
-    )
-    const nameTop = eyebrowBottom + T.eyebrowToNameGap
-    nameLines.forEach((line, i) =>
-        ctx.fillText(line, T.centerX, nameTop + i * N.lineHeight)
-    )
-    const nameBottom = nameTop + nameLines.length * N.lineHeight
+    const displayName = trimNameForDisplay(name || "YOUR NAME").toUpperCase()
+    const nameLines = wrapPosterName(displayName, ctx, N.maxWidth)
+    const nameH = nameLines.length * N.lineHeight
 
+    // Block 3 — subtitle. Wrap the prefix + company against the
+    // narrower `subtitle.maxWidth`.
     const S = T.subtitle
     ctx.font = `${S.fontWeight} ${S.fontSize}px '${S.fontFamily}', sans-serif`
     if ("letterSpacing" in ctx)
@@ -1006,10 +1066,42 @@ function renderPosterOverlay(
         ctx,
         S.maxWidth
     )
-    const allSubLines = [...prefixLines, ...companyLines]
-    const subtitleTop = nameBottom + T.nameToSubtitleGap
-    allSubLines.forEach((line, i) =>
-        ctx.fillText(line, T.centerX, subtitleTop + i * S.lineHeight)
+    const subLines = [...prefixLines, ...companyLines]
+    const subH = subLines.length * S.lineHeight
+
+    const stackH =
+        eyebrowH + T.eyebrowToNameGap + nameH + T.nameToSubtitleGap + subH
+    const startY = T.anchorY - stackH / 2
+
+    // ── Render top-down ──────────────────────────────────────────────
+    // Eyebrow — centred in its line-box.
+    const E = T.eyebrow
+    ctx.font = `${E.fontWeight} ${E.fontSize}px '${E.fontFamily}', sans-serif`
+    ctx.textBaseline = "middle"
+    if ("letterSpacing" in ctx)
+        (ctx as any).letterSpacing = `${E.letterSpacing}px`
+    ctx.fillText(E.text, T.centerX, startY + eyebrowH / 2)
+
+    // Name — top-aligned per line; step = N.lineHeight. Restore the
+    // canvas font + letterSpacing before drawing (the pre-measure pass
+    // left them at the subtitle's values).
+    ctx.font = `${N.fontWeight} ${N.fontSize}px '${N.fontFamily}', sans-serif`
+    ctx.textBaseline = "top"
+    if ("letterSpacing" in ctx)
+        (ctx as any).letterSpacing = `${N.letterSpacing}px`
+    const nameTop = startY + eyebrowH + T.eyebrowToNameGap
+    nameLines.forEach((line, i) =>
+        ctx.fillText(line, T.centerX, nameTop + i * N.lineHeight)
+    )
+
+    // Subtitle — top-aligned per line; step = S.lineHeight.
+    ctx.font = `${S.fontWeight} ${S.fontSize}px '${S.fontFamily}', sans-serif`
+    ctx.textBaseline = "top"
+    if ("letterSpacing" in ctx)
+        (ctx as any).letterSpacing = `${S.letterSpacing}px`
+    const subTop = nameTop + nameH + T.nameToSubtitleGap
+    subLines.forEach((line, i) =>
+        ctx.fillText(line, T.centerX, subTop + i * S.lineHeight)
     )
 
     // Diagonal blue ticker strip. The SVG ships pre-rotated (rotation is
