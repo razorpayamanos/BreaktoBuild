@@ -360,6 +360,20 @@
     //           pixels. Without the pad, the binary search converges on
     //           the font where measureText === maxWidth and the
     //           rightmost glyph ends up flush against the slab edge.
+    //   RULE 8  hard vertical-fit guard. The rendered text block must
+    //           fit `maxHeight − verticalFitPad` at the chosen font.
+    //           Without this check, 4-line wraps at max font geometrically
+    //           overflow maxH by ~30 px, getting clipped at the top of
+    //           the first line and the bottom of the last (visible on
+    //           "I DONT HAVE GUIDANCE" before hyphenateMinLength fix).
+    //           Block height formula:
+    //               (N − 1) × lh × fontSize
+    //             + glyphCapExtentRatio × fontSize  (cap top + baseline below middle)
+    //             + glyphShadowExtent              (inner shadow blur margin)
+    //           Same gate-pattern as RULE 7 — applied at RULE 1, RULE 5,
+    //           and binary-search acceptance. If even minFontSize still
+    //           overflows, RULE 6 (post-fallback) drops to
+    //           overflowMinFontSize.
     //
     // See `wrapAndFit` for the algorithm; see the slabText prep sites in
     // SECTION 5/6 for the input truncation.
@@ -375,7 +389,13 @@
       maxLines: 4,
 
       // RULE 2 — hyphenate words this long or longer.
-      hyphenateMinLength: 8,
+      // Set to 9 (not 8) so that 8-char words like GUIDANCE, INVESTOR,
+      // REJECTED stay whole — they fit `maxCharsPerLine: 8` exactly on
+      // their own line. Hyphenating them needlessly forces a 4-line
+      // wrap (e.g. "I DONT / HAVE / GUID- / ANCE") which then overflows
+      // the vertical safe area; with 9 they stay 3 lines ("I DONT /
+      // HAVE / GUIDANCE") and fit comfortably.
+      hyphenateMinLength: 9,
 
       // RULE 3 — hard cap on user-supplied text length.
       maxInputChars: 30,
@@ -398,6 +418,27 @@
       // search lands on the font where measureText === maxWidth and
       // S/D-ending words sit flush against the slab right edge.
       pixelFitRightPad: 8,
+
+      // RULE 8 — vertical-fit constants. Every line block must fit
+      // within `maxHeight − verticalFitPad` at the chosen font, where
+      // the rendered block height is:
+      //   (N − 1) × lh + glyphCapExtentRatio × fontSize + glyphShadowExtent
+      //
+      // The ratios are EMPIRICALLY measured for the current font
+      // (Special Gothic Condensed One uppercase) by rendering on a
+      // clean canvas and finding the topmost/bottommost ink pixels:
+      //   • Cap extent above textBaseline="middle": ~0.457 × fontSize
+      //   • Baseline extent below middle:           ~0.271 × fontSize
+      //   → Sum: 0.728. Use 0.8 to account for the +3% Y-growth from
+      //     the slab's −2.53° rotation + 8° skewX transforms.
+      //
+      // `glyphShadowExtent` captures the inner shadow's reach past the
+      // glyph in canvas px: blur 9 above + (offset 4 + blur 9) below.
+      // Without it the algorithm would underestimate true rendered
+      // height by ~22 px and let 4-line wraps clip vertically.
+      glyphCapExtentRatio: 0.8,
+      glyphShadowExtent: 22,
+      verticalFitPad: 0,
 
       fontFamily: "'Special Gothic Condensed One', 'Anton', sans-serif",
       fontWeight: 400,
@@ -674,7 +715,8 @@
 
     function wrapAndFit(text, ctx, opts) {
       const {
-        fontFamily, fontWeight, maxWidth,
+        fontFamily, fontWeight, maxWidth, maxHeight,
+        lineHeight = 0.8,
         letterSpacing,
         minFontSize = 30, maxFontSize = 70,
         hyphenateMinLength = Infinity,
@@ -685,6 +727,9 @@
         overflowMinFontSize = 0,
         overflowInputCharThreshold = Infinity,
         pixelFitRightPad = 0,
+        glyphCapExtentRatio = 0,
+        glyphShadowExtent = 0,
+        verticalFitPad = 0,
       } = opts;
 
       const applyFont = (size) => {
@@ -709,6 +754,31 @@
       const effectiveMaxWidth = Math.max(0, maxWidth - pixelFitRightPad);
       const allLinesFitPixels = (lines) =>
         lines.every((l) => ctx.measureText(l).width <= effectiveMaxWidth);
+      // RULE 8 — every line block must fit the vertical cap at the
+      // chosen font. wrapGreedy / RULE 1 only check line COUNT, not
+      // total rendered height — so a 4-line wrap at max font passes
+      // line count (4 ≤ maxLines 4) but its geometric ink extends
+      // ~30 px past `maxHeight`, clipping at the visible stone edges.
+      //
+      // Rendered block height ≈
+      //   (N − 1) × fontSize × lineHeight       (line-center spacing)
+      //   + glyphCapExtentRatio × fontSize       (cap top + baseline below middle)
+      //   + glyphShadowExtent                    (inner shadow blur margin)
+      //
+      // `verticalFitPad` is subtracted from maxHeight as a safety
+      // margin against the visible stone area being slightly smaller
+      // than the slab clip polygon (the polygon is the AABB; the actual
+      // engravable stone surface tapers at the bevels).
+      const effectiveMaxHeight = Math.max(0, maxHeight - verticalFitPad);
+      const verticalFitEnabled =
+        glyphCapExtentRatio > 0 && maxHeight > 0;
+      const renderedBlockHeight = (linesArr, fontSize) =>
+        (linesArr.length - 1) * fontSize * lineHeight
+        + glyphCapExtentRatio * fontSize
+        + glyphShadowExtent;
+      const allLinesFitVertical = (linesArr, fontSize) =>
+        !verticalFitEnabled ||
+        renderedBlockHeight(linesArr, fontSize) <= effectiveMaxHeight;
 
       // RULE 6 (early-fire)
       if (
@@ -722,33 +792,46 @@
 
       applyFont(maxFontSize);
       const linesAtMax = wrap();
-      // RULE 1 — keep max font only when line count AND every line's
-      // pixel width both pass. The pixel check (RULE 7) catches the
-      // single-token-overflow case wrapGreedy can't avoid on its own.
-      if (linesAtMax.length <= maxLines && allLinesFitPixels(linesAtMax)) {
+      // RULE 1 — keep max font only when line count, every line's
+      // pixel width (RULE 7), AND total block height (RULE 8) all pass.
+      // RULE 7 catches single-token-overflow that wrapGreedy can't
+      // avoid; RULE 8 catches N-line wraps whose rendered height
+      // exceeds `maxHeight` even when line count is within `maxLines`.
+      if (
+        linesAtMax.length <= maxLines &&
+        allLinesFitPixels(linesAtMax) &&
+        allLinesFitVertical(linesAtMax, maxFontSize)
+      ) {
         return { fontSize: maxFontSize, lines: linesAtMax };
       }
       // RULE 5 — short-line override (capped at overflowLineThreshold).
-      // Same RULE 7 guard: a 7-char "narrow" line can still overflow
-      // pixel width, so we don't let RULE 5 lock in max font in that case.
+      // Same RULE 7 + RULE 8 guards: a "narrow" line wrap can still
+      // overflow pixel width or block height, so RULE 5 can't lock in
+      // max font in those cases.
       if (
         narrowLineThreshold > 0 &&
         linesAtMax.length <= overflowLineThreshold &&
         linesAtMax.every((l) => l.length < narrowLineThreshold) &&
-        allLinesFitPixels(linesAtMax)
+        allLinesFitPixels(linesAtMax) &&
+        allLinesFitVertical(linesAtMax, maxFontSize)
       ) {
         return { fontSize: maxFontSize, lines: linesAtMax };
       }
 
-      // Binary-search downward for the largest size that fits BOTH the
-      // line-count cap AND the pixel-width cap on every line (RULE 7).
+      // Binary-search downward for the largest size that fits the
+      // line-count cap, the pixel-width cap (RULE 7), AND the vertical
+      // cap (RULE 8) on every line.
       let lo = minFontSize, hi = maxFontSize - 1;
       let best = null;
       while (lo <= hi) {
         const mid = Math.floor((lo + hi) / 2);
         applyFont(mid);
         const lines = wrap();
-        if (lines.length <= maxLines && allLinesFitPixels(lines)) {
+        if (
+          lines.length <= maxLines &&
+          allLinesFitPixels(lines) &&
+          allLinesFitVertical(lines, mid)
+        ) {
           best = { fontSize: mid, lines };
           lo = mid + 1;
         } else {
@@ -760,11 +843,21 @@
       applyFont(minFontSize);
       const fallbackLines = wrap();
 
-      // RULE 6 (post-fallback)
+      // RULE 6 (post-fallback) — fires when EITHER:
+      //   (a) line count still exceeds `overflowLineThreshold` at minFont, OR
+      //   (b) total rendered block height still overflows the vertical
+      //       cap (RULE 8) at minFont — happens for 4-line wraps that
+      //       are line-count-acceptable but geometrically too tall.
+      // Either trigger drops the chosen size to `overflowMinFontSize`
+      // (below minFontSize), giving the block enough room to fit.
+      const fallbackOverflowsLines =
+        fallbackLines.length > overflowLineThreshold;
+      const fallbackOverflowsVertical =
+        !allLinesFitVertical(fallbackLines, minFontSize);
       if (
         overflowMinFontSize > 0 &&
         overflowMinFontSize < minFontSize &&
-        fallbackLines.length > overflowLineThreshold
+        (fallbackOverflowsLines || fallbackOverflowsVertical)
       ) {
         applyFont(overflowMinFontSize);
         return { fontSize: overflowMinFontSize, lines: wrap() };
@@ -801,6 +894,9 @@
         overflowMinFontSize: C.overflowMinFontSize ?? 0,
         overflowInputCharThreshold: C.overflowInputCharThreshold ?? Infinity,
         pixelFitRightPad: C.pixelFitRightPad ?? 0,
+        glyphCapExtentRatio: C.glyphCapExtentRatio ?? 0,
+        glyphShadowExtent: C.glyphShadowExtent ?? 0,
+        verticalFitPad: C.verticalFitPad ?? 0,
       });
 
       ctx.font = `${C.fontWeight} ${fontSize}px ${C.fontFamily}`;
