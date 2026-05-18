@@ -1153,7 +1153,17 @@ function drawPosterFrame(
             (mediaEl as HTMLVideoElement).videoHeight ||
             (mediaEl as HTMLCanvasElement).height ||
             0
-        if (mw && mh) ctx.drawImage(mediaEl, P.media.x, P.media.y)
+        if (mw && mh) {
+            // Scale to fill the final canvas, preserving aspect ratio.
+            // Mobile browsers may decode source videos at lower resolution,
+            // so we always scale rather than drawing at native size.
+            const scale = Math.max(FINAL_WIDTH / mw, FINAL_HEIGHT / mh)
+            const drawW = mw * scale
+            const drawH = mh * scale
+            const drawX = (FINAL_WIDTH - drawW) / 2
+            const drawY = (FINAL_HEIGHT - drawH) / 2
+            ctx.drawImage(mediaEl, drawX, drawY, drawW, drawH)
+        }
     }
     renderPosterOverlay(ctx, userData, logos)
 }
