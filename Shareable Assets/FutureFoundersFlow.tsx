@@ -47,7 +47,7 @@ const FINAL_VIDEO_PATHS: Record<AvatarKey, Record<WeaponKey, string>> = {
         smash: "bat_35.mp4",
         crush: "hammer_37.mp4",
         slice: "sword_34.mp4",
-        thrash: "flail_45.mp4",
+        thrash: "flail_38.mp4",
         kick: "kick_48.mp4",
         punch: "punch_70.mp4",
     },
@@ -55,7 +55,7 @@ const FINAL_VIDEO_PATHS: Record<AvatarKey, Record<WeaponKey, string>> = {
         smash: "bat_39.mp4",
         crush: "hammer_72.mp4",
         slice: "sword_36.mp4",
-        thrash: "flail_38.mp4",
+        thrash: "flail_37.mp4",
         kick: "kick_41.mp4",
         punch: "punch_59.mp4",
     },
@@ -115,6 +115,20 @@ function getComboConfig(avatar: AvatarKey, weapon: WeaponKey) {
  *               (e.g. 29 or 30 chars). Bypasses RULES 1 + 5.
  *           Either way the chosen font is `overflowMinFontSize`,
  *           independent of `minFontSize` so typical wraps don't shrink.
+ *   RULE 7  hard pixel-width guard. Every line must fit
+ *           `maxWidth − pixelFitRightPad` at the chosen font. wrapGreedy
+ *           enforces the cap only when deciding WHERE to break — a
+ *           single token always lands on its own line, so a 7-char
+ *           hyphenation fragment ("EXPERI-") or a 7-char word
+ *           ("PARENTS", "CROWDED") can visually bleed past the slab
+ *           edge at max font.
+ *           `pixelFitRightPad` is a small safety pad that accounts for
+ *           what `measureText().width` misses: the right-side bearing
+ *           of glyphs like S (curved right edge paints 1–3px past
+ *           advance width) plus anti-aliasing edge pixels. Without the
+ *           pad, the binary search converges on the font where
+ *           measureText === maxWidth and the rightmost glyph ends up
+ *           flush against the slab edge.
  *
  * RULE 4 makes the wrap effectively size-invariant: shrinking the font
  * does NOT reduce line count, so inputs that wrap to > maxLines here will
@@ -163,6 +177,14 @@ const SLAB_CONFIG = {
     overflowLineThreshold: 5,
     overflowMinFontSize: 52,
     overflowInputCharThreshold: 28,
+
+    // RULE 7 — pixel-fit safety pad (canvas px). Subtracted from
+    // `maxWidth` ONLY inside the RULE 7 line-width check so the font
+    // selector leaves visible breathing room between the rightmost
+    // glyph and the slab edge. Without it the binary search lands on
+    // the font where measureText === maxWidth and S/D-ending words
+    // sit flush against the slab right edge.
+    pixelFitRightPad: 8,
 
     // Type
     fontFamily: "'Special Gothic Condensed One', 'Anton', sans-serif",
@@ -307,15 +329,28 @@ const POSTER_OVERLAY = {
     // Diagonal "FUTURE FOUNDER" strip — Figma frame 3851:144.
     // IMPORTANT: Ticker_Grey.svg is 1403×298 with the -9.12° rotation BAKED
     // INTO the file's internal <rect transform>. Treat it as a flat image:
-    //   • Do NOT apply canvas rotation (we'd double-rotate).
-    //   • Position by top-left at the Figma container's CSS position
-    //     (-193,577 in the 620×775 mock → ×1.7419 to canvas).
-    //   • Width matches the Figma container; height derives at draw time
-    //     from the SVG's natural aspect ratio so the text isn't squished.
+    // do NOT apply canvas rotation; preserve the SVG's natural aspect.
+    //
+    // SIZING: the SVG's internal bar (pre-rotation 1407.97 × 75.4157,
+    // aspect 18.67:1) doesn't match the Figma design's bar aspect
+    // (~15:1) — naïvely fitting to the Figma container's width yields
+    // a bar that's ~21% thinner than designed. Instead we scale the SVG
+    // uniformly so the rendered bar's pre-rotation thickness === Figma
+    // spec (131.4 canvas px = 44.641 figma × 2.943 scale):
+    //   scale = 131.4 / 75.4157 = 1.7423
+    //   w = 1403 × 1.7423 ≈ 2444.4
+    // The extra length spills past the canvas edges — fine because we
+    // want a continuous "infinite" diagonal ticker.
+    //
+    // POSITION: x/y anchored so the SVG bar's centre (post-rotation:
+    // SVG (701.07, 148.87)) maps to the same canvas centre the old
+    // (smaller-bar) config produced — (646.61, 1213.73). That keeps the
+    // visible bar in the same place along the bottom of the canvas;
+    // only the thickness grows.
     ticker: {
-        x: -336.18, // -193 × 1.7419
-        y: 1005.07, // 577 × 1.7419
-        w: 1966.44, // 1128.895 × 1.7419
+        x: -575.04,
+        y: 954.33,
+        w: 2444.4,
     },
 }
 
@@ -654,6 +689,7 @@ function wrapAndFit(
         overflowLineThreshold?: number
         overflowMinFontSize?: number
         overflowInputCharThreshold?: number
+        pixelFitRightPad?: number
         // Accepted for API compatibility; not used by the fit math. See
         // the doc-block above for why.
         rotation?: number
@@ -676,6 +712,7 @@ function wrapAndFit(
         overflowLineThreshold = Infinity,
         overflowMinFontSize = 0,
         overflowInputCharThreshold = Infinity,
+        pixelFitRightPad = 0,
     } = opts
 
     const applyFont = (size: number) => {
@@ -685,6 +722,23 @@ function wrapAndFit(
     }
     const wrap = () =>
         wrapGreedy(text, ctx, maxWidth, hyphenateMinLength, maxCharsPerLine)
+    // RULE 7 — every line must fit the pixel cap at the chosen font.
+    // wrapGreedy only consults the pixel cap when DECIDING WHERE to
+    // break — a single token (e.g. the 7-char hyphenation fragment
+    // "EXPERI-" or a 7-char word like "PARENTS"/"CROWDED") still ends
+    // up on its own line even if it overflows maxWidth at the current
+    // font. This helper lets the font-size selector reject such
+    // results and walk the font DOWN until every line genuinely fits.
+    //
+    // `pixelFitRightPad` is subtracted from maxWidth ONLY here (not
+    // inside wrapGreedy) so we leave visible breathing room between
+    // the rightmost painted pixel and the slab edge. `measureText`
+    // returns the advance width — the right-side bearing of glyphs
+    // like S adds a few px of paint past that, which makes the font
+    // selector land flush against the edge if the pad is 0.
+    const effectiveMaxWidth = Math.max(0, maxWidth - pixelFitRightPad)
+    const allLinesFitPixels = (lines: string[]) =>
+        lines.every((l) => ctx.measureText(l).width <= effectiveMaxWidth)
 
     // RULE 6 (early-fire) — long inputs always render at the deep-
     // overflow floor, bypassing RULES 1 + 5. This catches the case
@@ -703,8 +757,10 @@ function wrapAndFit(
     // Try the design's intended max size first.
     applyFont(maxFontSize)
     const linesAtMax = wrap()
-    // RULE 1 — within the line cap, keep max font.
-    if (linesAtMax.length <= maxLines) {
+    // RULE 1 — keep max font only when line count AND every line's
+    // pixel width both pass. The pixel check (RULE 7) catches the
+    // single-token-overflow case wrapGreedy can't avoid on its own.
+    if (linesAtMax.length <= maxLines && allLinesFitPixels(linesAtMax)) {
         return { fontSize: maxFontSize, lines: linesAtMax }
     }
     // RULE 5 — short-line override. Even if we blew past maxLines,
@@ -712,20 +768,21 @@ function wrapAndFit(
     // BUT: cap this override at `overflowLineThreshold` so we don't
     // steal RULE 6's territory — deep-overflow (6+ line) wraps must
     // be allowed to scale down to overflowMinFontSize even when every
-    // line happens to be narrow.
+    // line happens to be narrow. Also require RULE 7 pixel-fit.
     if (
         narrowLineThreshold > 0 &&
         linesAtMax.length <= overflowLineThreshold &&
-        linesAtMax.every((l) => l.length < narrowLineThreshold)
+        linesAtMax.every((l) => l.length < narrowLineThreshold) &&
+        allLinesFitPixels(linesAtMax)
     ) {
         return { fontSize: maxFontSize, lines: linesAtMax }
     }
 
-    // Wrap exceeded maxLines at max font — binary-search downward for the
-    // largest size that still fits in ≤ maxLines. NOTE: with RULE 4 in
-    // play, the wrap is mostly character-driven, so shrinking the font
-    // rarely changes line count — this loop typically converges on
-    // minFontSize when it runs at all.
+    // Binary-search downward for the largest size that fits BOTH the
+    // line-count cap AND the pixel-width cap on every line (RULE 7).
+    // NOTE: with RULE 4 in play, the wrap is mostly character-driven, so
+    // shrinking the font rarely changes line count — this loop typically
+    // converges on minFontSize when it runs at all.
     let lo = minFontSize,
         hi = maxFontSize - 1
     let best: { fontSize: number; lines: string[] } | null = null
@@ -733,7 +790,7 @@ function wrapAndFit(
         const mid = Math.floor((lo + hi) / 2)
         applyFont(mid)
         const lines = wrap()
-        if (lines.length <= maxLines) {
+        if (lines.length <= maxLines && allLinesFitPixels(lines)) {
             best = { fontSize: mid, lines }
             lo = mid + 1
         } else {
@@ -822,6 +879,7 @@ function renderSlabLayerInto(
         overflowLineThreshold: C.overflowLineThreshold ?? Infinity,
         overflowMinFontSize: C.overflowMinFontSize ?? 0,
         overflowInputCharThreshold: C.overflowInputCharThreshold ?? Infinity,
+        pixelFitRightPad: C.pixelFitRightPad ?? 0,
         rotation: C.rotation,
         skewX: C.skewX,
         skewY: C.skewY,
@@ -1559,7 +1617,7 @@ export default function FutureFoundersGenerator(props: Partial<ComponentProps>) 
         return (
             <div style={container}>
                 <div style={{ fontSize: 22, fontWeight: 700 }}>
-                    Pledging your future…
+                    Forging your mark…
                 </div>
                 <div
                     style={{
