@@ -45,7 +45,7 @@ const FINAL_VIDEO_PATHS: Record<AvatarKey, Record<WeaponKey, string>> = {
         crush: "hammer_72.mp4",
         slice: "sword_36.mp4",
         thrash: "flail_38.mp4",
-        kick: "kick_35.mp4",
+        kick: "kick_41.mp4",
         punch: "punch_59.mp4",
     },
 }
