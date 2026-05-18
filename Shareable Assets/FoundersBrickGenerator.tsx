@@ -1479,7 +1479,7 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
     const container: React.CSSProperties = {
         width: "100%",
         height: "100%",
-        background: backgroundColor,
+        background: status === "result" ? "white" : backgroundColor,
         color: "#fff",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter', sans-serif",
         display: "flex",
@@ -1487,7 +1487,6 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
         alignItems: "center",
         justifyContent: "center",
         gap: 16,
-        padding: 16,
         boxSizing: "border-box",
         overflow: "hidden",
     }
@@ -1502,19 +1501,19 @@ export default function FoundersBrickGenerator(props: Partial<ComponentProps>) {
         background: accentColor,
         color: "#fff",
         border: 0,
-        padding: "12px 22px",
-        fontFamily: "inherit",
-        fontSize: 16,
+        padding: "14px 20px 8px 20px",
+        fontFamily: "GC VANK",
+        fontSize: 22,
         fontWeight: 600,
         cursor: "pointer",
-        borderRadius: 4,
-        letterSpacing: 0.02,
+        textTransform: "uppercase",
+        letterSpacing: 1,
     }
 
     const secondaryBtn: React.CSSProperties = {
         ...button,
-        background: "transparent",
-        border: "1px solid rgba(255,255,255,0.4)",
+        background:
+            "linear-gradient(90deg, rgba(79, 79, 79, 1) 0%, rgba(181, 181, 181, 1) 100%)",
     }
 
     if (status === "idle") {
