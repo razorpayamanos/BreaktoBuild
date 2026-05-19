@@ -20,7 +20,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 //  SECTION 1 — Configuration
 // ────────────────────────────────────────────────────────────────────────────
 
-const R2_BASE = "https://pub-0f7799ae7afd4b0e8e0a1b925ad21000.r2.dev"
+const R2_BASE = "https://cdn.razorpay.com/static/assets/breakToBold"
 
 const FINAL_WIDTH = 1080
 const FINAL_HEIGHT = 1350
@@ -497,7 +497,7 @@ const GOOGLE_FONTS_HREF =
 const RIGHTMAN_FONT_FACE = `
 @font-face {
   font-family: "Rightman Signature";
-  src: url("${R2_BASE}/Avatars/RightmanSignature.otf") format("opentype");
+  src: url("https://pub-0f7799ae7afd4b0e8e0a1b925ad21000.r2.dev/Avatars/RightmanSignature.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
