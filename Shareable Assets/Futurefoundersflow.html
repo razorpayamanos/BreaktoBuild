@@ -33,7 +33,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Allura&family=Anton&family=Inter:wght@400;500;600;700&family=Sacramento&family=Special+Gothic+Condensed+One&family=Unbounded:wght@400;700;900&display=swap">
+    href="https://fonts.googleapis.com/css2?family=Allura&family=Anton&family=Inter:wght@400;500;600;700&family=Mrs+Saint+Delafield&family=Sacramento&family=Special+Gothic+Condensed+One&family=Unbounded:wght@400;700;900&display=swap">
 
   <style>
     /* Custom signature font served from our R2 CDN. Kept here (not inline
@@ -530,7 +530,14 @@
       name: {
         centerX: 722.03,
         centerY: 467.5,
-        fontFamily: "'Rightman Signature', 'Allura', 'Sacramento', cursive",
+        // Cascade: licensed Rightman Signature → Mrs Saint Delafield
+        // (Google Fonts, closest script match) → Allura → Sacramento →
+        // generic cursive. Browsers that can't pull the R2-hosted OTF
+        // for any reason (CORS hiccup, slow CDN, ad-blocker) fall
+        // straight through to a hand-script Google Font instead of
+        // dropping all the way to a default cursive.
+        fontFamily:
+          "'Rightman Signature', 'Mrs Saint Delafield', 'Allura', 'Sacramento', cursive",
         fontWeight: 400,
         fontSize: 247.69,
         minFontSize: 110,
@@ -644,6 +651,8 @@
           document.fonts.load('400 250px "Rightman Signature"'),
           // Google Fonts fallbacks — used if the OTF fetch fails or while
           // it's still in-flight (font-display: swap).
+          document.fonts.load('400 150px "Mrs Saint Delafield"'),
+          document.fonts.load('400 250px "Mrs Saint Delafield"'),
           document.fonts.load("400 150px Allura"),
           document.fonts.load("400 250px Allura"),
           document.fonts.load("400 150px Sacramento"),

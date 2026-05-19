@@ -355,7 +355,14 @@ const POSTER_OVERLAY = {
     name: {
         centerX: 722.03,
         centerY: 467.5,
-        fontFamily: "'Rightman Signature', 'Allura', 'Sacramento', cursive",
+        // Cascade: licensed Rightman Signature → Mrs Saint Delafield
+        // (Google Fonts, closest script match) → Allura → Sacramento →
+        // generic cursive. Browsers that can't pull the R2-hosted OTF
+        // for any reason (CORS hiccup, slow CDN, ad-blocker) fall
+        // straight through to a hand-script Google Font instead of
+        // dropping all the way to a default cursive.
+        fontFamily:
+            "'Rightman Signature', 'Mrs Saint Delafield', 'Allura', 'Sacramento', cursive",
         fontWeight: 400,
         fontSize: 247.69,
         minFontSize: 110,
@@ -482,7 +489,7 @@ async function getTickerImage() {
 // preload Allura and Sacramento as visual fallbacks so the signature still
 // reads as a flowing script even if the licensed font isn't installed.
 const GOOGLE_FONTS_HREF =
-    "https://fonts.googleapis.com/css2?family=Allura&family=Anton&family=Inter:wght@400;500;600;700&family=Sacramento&family=Special+Gothic+Condensed+One&family=Unbounded:wght@400;700;900&display=swap"
+    "https://fonts.googleapis.com/css2?family=Allura&family=Anton&family=Inter:wght@400;500;600;700&family=Mrs+Saint+Delafield&family=Sacramento&family=Special+Gothic+Condensed+One&family=Unbounded:wght@400;700;900&display=swap"
 
 // Custom signature font served from our R2 CDN. Injected as a <style>
 // @font-face rule so document.fonts.load(...) below can await its
@@ -549,6 +556,8 @@ async function preloadFonts() {
             document.fonts.load('400 180px "Rightman Signature"'),
             document.fonts.load('400 250px "Rightman Signature"'),
             // Google Fonts fallbacks while the OTF is in-flight (font-display: swap).
+            document.fonts.load('400 150px "Mrs Saint Delafield"'),
+            document.fonts.load('400 250px "Mrs Saint Delafield"'),
             document.fonts.load("400 150px Allura"),
             document.fonts.load("400 250px Allura"),
             document.fonts.load("400 150px Sacramento"),
@@ -1485,6 +1494,75 @@ async function processVideoToPoster(args: {
 //  SECTION 4 — React wrapper component
 // ────────────────────────────────────────────────────────────────────────────
 
+// ─── Share config + platform helpers (desktop fallback) ─────────────────────
+// On desktop, the Web Share API can't attach video files, so the Share
+// button is replaced by 3 platform buttons. Each one opens the platform's
+// composer in a new tab with prefilled text/URL and auto-downloads the
+// rendered video for manual attachment (none of X / LinkedIn / WhatsApp
+// accept media via URL params — that's a platform limitation, not a code
+// one).
+const SHARE_CONFIG = {
+    text: "I'm taking the pledge to beat the odds and build for India. #BreakToBuild × @Razorpay",
+    url: "https://relieved-series-107200.framer.app/",
+}
+
+function buildPlatformShareUrl(
+    platform: "x" | "linkedin" | "whatsapp"
+): string {
+    const t = encodeURIComponent(SHARE_CONFIG.text)
+    const u = encodeURIComponent(SHARE_CONFIG.url)
+    switch (platform) {
+        case "x":
+            return `https://twitter.com/intent/tweet?text=${t}&url=${u}`
+        case "linkedin":
+            return `https://www.linkedin.com/sharing/share-offsite/?url=${u}&summary=${t}`
+        case "whatsapp":
+            return `https://api.whatsapp.com/send?text=${t}%20${u}`
+    }
+}
+
+// Inline platform glyphs. Pure SVG, no external font/icon deps so they
+// render identically in Framer preview and on the published site.
+function IconX() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+            fill="currentColor"
+            aria-hidden="true"
+        >
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
+        </svg>
+    )
+}
+function IconLinkedIn() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            width="26"
+            height="26"
+            fill="currentColor"
+            aria-hidden="true"
+        >
+            <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 11.001-4.121A2.06 2.06 0 015.34 7.43zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z" />
+        </svg>
+    )
+}
+function IconWhatsApp() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            width="26"
+            height="26"
+            fill="currentColor"
+            aria-hidden="true"
+        >
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12.05 21.785h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.002-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884zM20.463 3.488A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+        </svg>
+    )
+}
+
 type Status = "idle" | "loading" | "result" | "error"
 
 interface ComponentProps {
@@ -1516,6 +1594,12 @@ export default function FutureFoundersGenerator(props: Partial<ComponentProps>) 
     const [resultBlob, setResultBlob] = useState<Blob | null>(null)
     const [resultMime, setResultMime] = useState<string>("video/mp4")
     const [error, setError] = useState<string | null>(null)
+    // Mobile detection — drives which share UI we render. We treat the
+    // device as mobile when the UA matches a known mobile string OR the
+    // viewport is narrow (≤ 768 px). Either trigger is enough because
+    // desktop browsers occasionally hand out mobile UAs in dev tools and
+    // we want the experience to switch as the user resizes.
+    const [isMobile, setIsMobile] = useState(false)
     const prevStartRef = useRef<boolean>(false)
     const isMountedRef = useRef<boolean>(true)
 
@@ -1524,6 +1608,21 @@ export default function FutureFoundersGenerator(props: Partial<ComponentProps>) 
         return () => {
             isMountedRef.current = false
         }
+    }, [])
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        const check = () => {
+            const ua = navigator.userAgent || ""
+            const isMobileUA =
+                /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(
+                    ua
+                )
+            setIsMobile(isMobileUA || window.innerWidth <= 768)
+        }
+        check()
+        window.addEventListener("resize", check)
+        return () => window.removeEventListener("resize", check)
     }, [])
 
     useEffect(() => {
@@ -1641,6 +1740,20 @@ export default function FutureFoundersGenerator(props: Partial<ComponentProps>) 
         }
     }
 
+    // Desktop share — opens the platform composer in a new tab and
+    // auto-downloads the rendered video so the user can attach it. The
+    // window.open call must run synchronously inside the click handler
+    // or popup blockers eat the new tab.
+    const onShareTo = (platform: "x" | "linkedin" | "whatsapp") => {
+        if (!resultBlob) return
+        window.open(
+            buildPlatformShareUrl(platform),
+            "_blank",
+            "noopener,noreferrer"
+        )
+        onDownload()
+    }
+
     const container: React.CSSProperties = {
         width: "100%",
         height: "100%",
@@ -1679,6 +1792,23 @@ export default function FutureFoundersGenerator(props: Partial<ComponentProps>) 
         ...button,
         background:
             "linear-gradient(90deg, rgba(79, 79, 79, 1) 0%, rgba(181, 181, 181, 1) 100%)",
+    }
+
+    // Square icon button for the desktop share row. Same accent + cursor
+    // as `button`, but no text padding. Sized to roughly match the visual
+    // height of the Download button (font 22 + padding 14+8 ≈ 58 px).
+    const ICON_BTN_SIZE = 58
+    const iconBtn: React.CSSProperties = {
+        background: accentColor,
+        color: "#fff",
+        border: 0,
+        padding: 0,
+        width: ICON_BTN_SIZE,
+        height: ICON_BTN_SIZE,
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
     }
 
     if (status === "idle") {
@@ -1775,13 +1905,44 @@ export default function FutureFoundersGenerator(props: Partial<ComponentProps>) 
                     }}
                 />
             )}
-            <div style={{ display: "flex", gap: 12 }}>
-                <button style={button} onClick={onShare}>
-                    Share
-                </button>
-                <button style={secondaryBtn} onClick={onDownload}>
-                    Download
-                </button>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                {isMobile ? (
+                    <>
+                        <button style={button} onClick={onShare}>
+                            Share
+                        </button>
+                        <button style={secondaryBtn} onClick={onDownload}>
+                            Download
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <button
+                            style={iconBtn}
+                            onClick={() => onShareTo("linkedin")}
+                            aria-label="Share on LinkedIn"
+                        >
+                            <IconLinkedIn />
+                        </button>
+                        <button
+                            style={iconBtn}
+                            onClick={() => onShareTo("x")}
+                            aria-label="Share on X"
+                        >
+                            <IconX />
+                        </button>
+                        <button
+                            style={iconBtn}
+                            onClick={() => onShareTo("whatsapp")}
+                            aria-label="Share on WhatsApp"
+                        >
+                            <IconWhatsApp />
+                        </button>
+                        <button style={secondaryBtn} onClick={onDownload}>
+                            Download
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     )
