@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Loader — Lighting Iteration Viewer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --panel-bg: rgba(14, 14, 18, 0.92);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --row-border: rgba(255, 255, 255, 0.06);
+      --label: #c9cad1;
+      --value: #ffffff;
+      --accent: #6e8bff;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: #0a0a0c; color: #e9eaef; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    canvas { display: block; }
+
+    #stage {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      right: 364px;
+      background: var(--bg-color, #194CFF);
+    }
+    @media (max-width: 720px) {
+      #stage { right: 0; bottom: 50vh; }
+      #panel { left: 12px; top: auto; }
+    }
+
+    #panel {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      bottom: 12px;
+      width: 340px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 14px 14px 10px;
+      overflow-y: auto;
+      font-size: 12px;
+      z-index: 10;
+    }
+    #panel h2 {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin: 14px 0 6px;
+      color: #8d8f9a;
+      font-weight: 600;
+    }
+    #panel h2:first-of-type { margin-top: 0; }
+    #panel .row {
+      display: grid;
+      grid-template-columns: 96px 1fr 44px;
+      gap: 8px;
+      align-items: center;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--row-border);
+    }
+    #panel .row:last-child { border-bottom: none; }
+    #panel label { color: var(--label); font-size: 11px; }
+    #panel input[type="range"] { width: 100%; accent-color: var(--accent); }
+    #panel input[type="color"] {
+      width: 100%; height: 24px; padding: 0; border: 1px solid var(--row-border); border-radius: 4px; background: transparent; cursor: pointer;
+    }
+    #panel input[type="number"] {
+      width: 100%; padding: 3px 5px; background: rgba(255,255,255,0.04); border: 1px solid var(--row-border); border-radius: 4px; color: var(--value); font-family: 'Inter', sans-serif; font-size: 11px;
+    }
+    #panel select {
+      width: 100%; padding: 4px 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--row-border); border-radius: 4px; color: var(--value); font-family: 'Inter', sans-serif; font-size: 11px;
+    }
+    #panel .val { color: var(--value); font-family: 'JetBrains Mono', monospace; font-size: 11px; text-align: right; }
+    #panel .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    #panel button {
+      padding: 8px 10px;
+      background: rgba(110, 139, 255, 0.18);
+      border: 1px solid rgba(110, 139, 255, 0.4);
+      color: #d6dfff;
+      border-radius: 6px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #panel button:hover { background: rgba(110, 139, 255, 0.3); }
+    #panel button.full { grid-column: 1 / -1; }
+    #panel button.danger { background: rgba(255, 80, 80, 0.15); border-color: rgba(255, 80, 80, 0.4); color: #ffcfcf; }
+    #panel button.danger:hover { background: rgba(255, 80, 80, 0.28); }
+    #panel .lightHeader { display: flex; align-items: center; justify-content: space-between; }
+    #panel .lightHeader .toggle {
+      font-size: 10px; color: #8d8f9a; cursor: pointer; user-select: none;
+      padding: 2px 6px; border-radius: 4px; border: 1px solid var(--row-border);
+    }
+    #panel .lightHeader .toggle.on { color: #b1ffb1; border-color: rgba(177, 255, 177, 0.3); }
+    #panel .lightBody.hidden { display: none; }
+
+    #hud {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      padding: 10px 14px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      font-size: 11px;
+      color: #c9cad1;
+      letter-spacing: 0.04em;
+      z-index: 10;
+      line-height: 1.5;
+    }
+    #hud b { color: #fff; font-weight: 600; }
+    #hud .ok { color: #b1ffb1; }
+    #hud .warn { color: #ffd07a; }
+    #hud .err { color: #ff8a8a; }
+
+    #toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 14px;
+      background: rgba(20, 20, 25, 0.95);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      font-size: 12px;
+      color: #d6dfff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 20;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <div id="hud">
+    <div>GLB <span id="glbStatus" class="warn">loading…</span></div>
+    <div>Frame <span id="fpsLabel" class="ok">—</span></div>
+    <div>Time <span id="timeLabel" class="ok">0.00s / 0.00s</span></div>
+    <div style="margin-top: 4px; color: #8d8f9a; font-size: 10px;">Press <b>P</b> to play · <b>R</b> to reset · <b>← →</b> step (Shift = 10×)</div>
+  </div>
+
+  <div id="panel"></div>
+
+  <div id="toast"></div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.160.0",
+        "three/addons/loaders/GLTFLoader.js": "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
+        "three/addons/loaders/DRACOLoader.js": "https://esm.sh/three@0.160.0/examples/jsm/loaders/DRACOLoader.js",
+        "three/addons/loaders/RGBELoader.js": "https://esm.sh/three@0.160.0/examples/jsm/loaders/RGBELoader.js",
+        "three/addons/controls/OrbitControls.js": "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    // ─── Config (mirrors loader.tsx defaults) ────────────────────
+    const GLB_URL =
+      "https://pub-0f7799ae7afd4b0e8e0a1b925ad21000.r2.dev/Loader/2026-05-13-text-crash.glb";
+    const DRACO_PATH = "https://www.gstatic.com/draco/v1/decoders/";
+
+    const STATE = {
+      bg: "#194CFF",
+      slab: "#000000",
+      text: "#FFFFFF",
+      slabRoughness: 0.9,
+      textRoughness: 0.64,
+      slabMetalness: 0.0,
+      textMetalness: 0.0,
+      toneMapping: "none",
+      exposure: 1.0,
+      shadows: true,
+      shadowBias: -0.0008,
+      shadowRadius: 4,
+      orbit: true,
+      useBakedCamera: false,
+      cameraFitPad: 1.6,
+      glbTimescale: 1.05,
+
+      lights: {
+        ambient: { enabled: true, color: "#ffffff", intensity: 0.00 },
+        hemi:    { enabled: true, sky: "#ffffff", ground: "#bbd0ff", intensity: 0.55 },
+        key:     { enabled: true, color: "#ffffff", intensity: 2.4, x:  2.5, y:  4.0, z:  3.5, castShadow: true },
+        fill:    { enabled: true, color: "#dbe7ff", intensity: 0.9, x: -3.0, y:  1.5, z:  2.5, castShadow: false },
+        rim:     { enabled: true, color: "#cfd9ff", intensity: 1.2, x: -2.0, y: -0.8, z:  2.0, castShadow: true },
+        back:    { enabled: true, color: "#a8b8ff", intensity: 0.6, x:  0.5, y:  3.0, z: -3.5, castShadow: false },
+      },
+    };
+
+    // ─── Three.js setup ──────────────────────────────────────────
+    const stage = document.getElementById("stage");
+    document.documentElement.style.setProperty("--bg-color", STATE.bg);
+
+    const stageSize = () => {
+      const rect = stage.getBoundingClientRect();
+      return { w: Math.max(1, Math.floor(rect.width)), h: Math.max(1, Math.floor(rect.height)) };
+    };
+
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    {
+      const { w, h } = stageSize();
+      renderer.setSize(w, h, false);
+    }
+    renderer.setClearColor(0x000000, 0);
+    renderer.shadowMap.enabled = STATE.shadows;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.toneMappingExposure = STATE.exposure;
+    renderer.domElement.style.display = "block";
+    renderer.domElement.style.width = "100%";
+    renderer.domElement.style.height = "100%";
+    stage.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const { w: sw, h: sh } = stageSize();
+    let camera = new THREE.PerspectiveCamera(35, sw / sh, 0.1, 100);
+    camera.position.set(0, 0.5, 6);
+    let bakedCamera = null;     // GLB's own camera, kept for optional use
+    let fitCamera = camera;     // The framing camera we compute from the bbox
+    let controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enabled = STATE.orbit;
+
+    // Auto-frame the model: position fitCamera to encompass the bbox
+    // centered in the stage. Called after GLB load and on resize.
+    const fitToObject = (object3d, pad = 1.6) => {
+      const box = new THREE.Box3().setFromObject(object3d);
+      if (box.isEmpty()) return;
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+
+      const { w, h } = stageSize();
+      const aspect = w / h;
+      const fov = (fitCamera.fov * Math.PI) / 180;
+
+      // Distance needed to fit the larger of width/height
+      const fitH = size.y / 2 / Math.tan(fov / 2);
+      const fitW = size.x / 2 / Math.tan(fov / 2) / aspect;
+      const dist = Math.max(fitH, fitW) * pad;
+
+      fitCamera.position.set(center.x, center.y, center.z + dist);
+      fitCamera.near = Math.max(0.01, dist / 100);
+      fitCamera.far = dist * 10;
+      fitCamera.lookAt(center);
+      fitCamera.updateProjectionMatrix();
+
+      if (controls) {
+        controls.target.copy(center);
+        controls.update();
+      }
+    };
+
+    // ─── Lights ──────────────────────────────────────────────────
+    const lights = {
+      ambient: new THREE.AmbientLight(0xffffff, 0),
+      hemi:    new THREE.HemisphereLight(0xffffff, 0xbbd0ff, 0),
+      key:     new THREE.DirectionalLight(0xffffff, 0),
+      fill:    new THREE.DirectionalLight(0xffffff, 0),
+      rim:     new THREE.DirectionalLight(0xffffff, 0),
+      back:    new THREE.DirectionalLight(0xffffff, 0),
+    };
+
+    // Shadow setup for key
+    lights.key.shadow.mapSize.set(2048, 2048);
+    lights.key.shadow.camera.near = 0.1;
+    lights.key.shadow.camera.far = 25;
+    lights.key.shadow.camera.left = -6;
+    lights.key.shadow.camera.right = 6;
+    lights.key.shadow.camera.top = 4;
+    lights.key.shadow.camera.bottom = -4;
+    lights.key.shadow.bias = STATE.shadowBias;
+    lights.key.shadow.radius = STATE.shadowRadius;
+
+    Object.values(lights).forEach((l) => scene.add(l));
+
+    const applyLights = () => {
+      const L = STATE.lights;
+      lights.ambient.color.set(L.ambient.color);
+      lights.ambient.intensity = L.ambient.enabled ? L.ambient.intensity : 0;
+
+      lights.hemi.color.set(L.hemi.sky);
+      lights.hemi.groundColor.set(L.hemi.ground);
+      lights.hemi.intensity = L.hemi.enabled ? L.hemi.intensity : 0;
+
+      const setDir = (light, cfg) => {
+        light.color.set(cfg.color);
+        light.intensity = cfg.enabled ? cfg.intensity : 0;
+        light.position.set(cfg.x, cfg.y, cfg.z);
+        light.castShadow = !!cfg.castShadow && STATE.shadows;
+      };
+      setDir(lights.key,  L.key);
+      setDir(lights.fill, L.fill);
+      setDir(lights.rim,  L.rim);
+      setDir(lights.back, L.back);
+
+      lights.key.shadow.bias = STATE.shadowBias;
+      lights.key.shadow.radius = STATE.shadowRadius;
+      renderer.shadowMap.enabled = STATE.shadows;
+    };
+    applyLights();
+
+    // Tone mapping switch
+    const TONE = {
+      none: THREE.NoToneMapping,
+      linear: THREE.LinearToneMapping,
+      reinhard: THREE.ReinhardToneMapping,
+      cineon: THREE.CineonToneMapping,
+      aces: THREE.ACESFilmicToneMapping,
+      neutral: THREE.AgXToneMapping ?? THREE.ACESFilmicToneMapping,
+    };
+    const applyTone = () => {
+      renderer.toneMapping = TONE[STATE.toneMapping] || THREE.NoToneMapping;
+      renderer.toneMappingExposure = STATE.exposure;
+    };
+    applyTone();
+
+    // ─── Materials ───────────────────────────────────────────────
+    let matText = new THREE.MeshStandardMaterial({
+      color: STATE.text,
+      roughness: STATE.textRoughness,
+      metalness: STATE.textMetalness,
+      side: THREE.FrontSide,
+    });
+    let matSlab = new THREE.MeshStandardMaterial({
+      color: STATE.slab,
+      roughness: STATE.slabRoughness,
+      metalness: STATE.slabMetalness,
+      side: THREE.FrontSide,
+    });
+
+    const applyMaterials = () => {
+      matText.color.set(STATE.text);
+      matText.roughness = STATE.textRoughness;
+      matText.metalness = STATE.textMetalness;
+      matSlab.color.set(STATE.slab);
+      matSlab.roughness = STATE.slabRoughness;
+      matSlab.metalness = STATE.slabMetalness;
+    };
+
+    const isSlabMesh = (mesh) => {
+      let p = mesh;
+      while (p) {
+        const nm = (p.name || "").toLowerCase();
+        if (nm.startsWith("cube")) return true;
+        if (nm.startsWith("curve") || nm.startsWith("a_cell") || nm === "a") return false;
+        p = p.parent;
+      }
+      return false;
+    };
+
+    // ─── Load GLB ────────────────────────────────────────────────
+    const draco = new DRACOLoader();
+    draco.setDecoderPath(DRACO_PATH);
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.setDRACOLoader(draco);
+
+    let mixer = null;
+    let clips = [];
+    let crashModel = null;
+    let maxDuration = 0;
+    let currentTime = 0;
+    let isPlaying = false;
+    const clock = new THREE.Clock();
+    const SCRUB_STEP = 1 / 30;       // one frame at 30fps
+    const SCRUB_STEP_BIG = 10 / 30;  // ~0.33s, Shift+Arrow
+
+    const glbStatus = document.getElementById("glbStatus");
+    gltfLoader.load(
+      GLB_URL,
+      (gltf) => {
+        const root = gltf.scene;
+
+        // Preserve the GLB's baked camera for optional use, but
+        // build a separate auto-fit camera that frames the bbox
+        // inside the visible stage area.
+        if (gltf.cameras && gltf.cameras.length > 0) {
+          bakedCamera = gltf.cameras[0];
+        }
+
+        // Strip cameras out of the scene graph so they're never
+        // rendered as objects.
+        const camsToRemove = [];
+        root.traverse((o) => { if (o.isCamera) camsToRemove.push(o); });
+        camsToRemove.forEach((c) => c.parent && c.parent.remove(c));
+
+        root.traverse((o) => {
+          if (o.isMesh) {
+            o.material = isSlabMesh(o) ? matSlab : matText;
+            o.castShadow = true;
+            o.receiveShadow = true;
+          }
+        });
+
+        scene.add(root);
+        crashModel = root;
+
+        // Auto-frame: position fitCamera to encompass the model.
+        fitToObject(root, STATE.cameraFitPad);
+        // Choose which camera renders based on STATE.useBakedCamera.
+        camera = STATE.useBakedCamera && bakedCamera ? bakedCamera : fitCamera;
+        const { w, h } = stageSize();
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        controls.dispose();
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.enabled = STATE.orbit;
+        const box = new THREE.Box3().setFromObject(root);
+        controls.target.copy(box.getCenter(new THREE.Vector3()));
+        controls.update();
+
+        mixer = new THREE.AnimationMixer(root);
+        clips = gltf.animations || [];
+        maxDuration = clips.reduce((m, c) => Math.max(m, c.duration), 0);
+        // Pre-start each action in a paused state so setTime() can
+        // scrub the pose without first calling play().
+        clips.forEach((c) => {
+          const a = mixer.clipAction(c);
+          a.setLoop(THREE.LoopOnce, 1);
+          a.clampWhenFinished = true;
+          a.timeScale = STATE.glbTimescale;
+          a.play();
+          a.paused = true;
+        });
+        currentTime = 0;
+        mixer.setTime(0);
+
+        glbStatus.textContent = `${clips.length} clip${clips.length === 1 ? "" : "s"} loaded`;
+        glbStatus.className = "ok";
+      },
+      (e) => {
+        if (e && e.total) {
+          glbStatus.textContent = `loading ${Math.round((e.loaded / e.total) * 100)}%`;
+        }
+      },
+      (err) => {
+        console.warn("[Loader] GLB load failed:", err);
+        glbStatus.textContent = "load failed";
+        glbStatus.className = "err";
+      }
+    );
+
+    // ─── Resize ──────────────────────────────────────────────────
+    const onResize = () => {
+      const { w, h } = stageSize();
+      renderer.setSize(w, h, false);
+      if (camera) {
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      if (crashModel && camera === fitCamera) {
+        fitToObject(crashModel, STATE.cameraFitPad);
+      }
+    };
+    window.addEventListener("resize", onResize);
+    // Also re-fit when the panel collapses/expands in mobile media query
+    new ResizeObserver(onResize).observe(stage);
+
+    // ─── Render loop ─────────────────────────────────────────────
+    const fpsLabel = document.getElementById("fpsLabel");
+    const timeLabel = document.getElementById("timeLabel");
+    let frame = 0, lastT = performance.now();
+    const tick = () => {
+      requestAnimationFrame(tick);
+      const dt = clock.getDelta();
+      if (mixer) {
+        if (isPlaying) {
+          mixer.update(dt);
+          if (clips.length) {
+            const a = mixer.clipAction(clips[0]);
+            if (a) currentTime = a.time;
+          }
+          if (maxDuration > 0 && currentTime >= maxDuration) {
+            currentTime = maxDuration;
+            isPlaying = false;
+            clips.forEach((c) => (mixer.clipAction(c).paused = true));
+          }
+        }
+      }
+      if (controls.enabled) controls.update();
+      stage.style.background = STATE.bg;
+      if (camera) renderer.render(scene, camera);
+      frame++;
+      const now = performance.now();
+      if (now - lastT >= 500) {
+        const fps = Math.round((frame * 1000) / (now - lastT));
+        fpsLabel.textContent = `${fps} fps`;
+        frame = 0; lastT = now;
+      }
+      if (timeLabel) {
+        timeLabel.textContent = `${currentTime.toFixed(2)}s / ${maxDuration.toFixed(2)}s`;
+      }
+    };
+    tick();
+
+    // ─── Crash controls ──────────────────────────────────────────
+    const playCrash = () => {
+      if (!mixer || !clips.length) return;
+      // If we're at (or past) the end, restart from 0.
+      if (maxDuration > 0 && currentTime >= maxDuration - 1e-4) currentTime = 0;
+      clips.forEach((c) => {
+        const a = mixer.clipAction(c);
+        a.time = currentTime;
+        a.timeScale = STATE.glbTimescale;
+        a.paused = false;
+      });
+      isPlaying = true;
+    };
+    const resetCrash = () => {
+      if (!mixer) return;
+      isPlaying = false;
+      currentTime = 0;
+      clips.forEach((c) => {
+        const a = mixer.clipAction(c);
+        a.time = 0;
+        a.paused = true;
+      });
+      mixer.setTime(0);
+    };
+    const scrubBy = (delta) => {
+      if (!mixer || !clips.length || !maxDuration) return;
+      isPlaying = false;
+      currentTime = Math.max(0, Math.min(maxDuration, currentTime + delta));
+      clips.forEach((c) => {
+        const a = mixer.clipAction(c);
+        a.paused = true;
+        a.time = currentTime;
+      });
+      mixer.setTime(currentTime);
+    };
+
+    window.addEventListener("keydown", (e) => {
+      // Ignore when typing in a panel input
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
+      if (e.key.toLowerCase() === "p") playCrash();
+      else if (e.key.toLowerCase() === "r") resetCrash();
+      else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        scrubBy(e.shiftKey ? SCRUB_STEP_BIG : SCRUB_STEP);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        scrubBy(-(e.shiftKey ? SCRUB_STEP_BIG : SCRUB_STEP));
+      }
+    });
+
+    // ─── Toast helper ────────────────────────────────────────────
+    const toast = document.getElementById("toast");
+    let toastTimer = 0;
+    const showToast = (msg) => {
+      toast.textContent = msg;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 1800);
+    };
+
+    // ─── Panel UI ────────────────────────────────────────────────
+    const panel = document.getElementById("panel");
+
+    const mkRow = (label, valueEl, valLabelEl) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const l = document.createElement("label");
+      l.textContent = label;
+      row.appendChild(l);
+      row.appendChild(valueEl);
+      if (valLabelEl) row.appendChild(valLabelEl);
+      else row.appendChild(document.createElement("span"));
+      return row;
+    };
+
+    const mkRange = (min, max, step, getValue, setValue, fmt = (v) => v.toFixed(2)) => {
+      const range = document.createElement("input");
+      range.type = "range";
+      range.min = min; range.max = max; range.step = step;
+      range.value = getValue();
+      const val = document.createElement("span");
+      val.className = "val";
+      val.textContent = fmt(parseFloat(range.value));
+      range.addEventListener("input", () => {
+        const v = parseFloat(range.value);
+        setValue(v);
+        val.textContent = fmt(v);
+      });
+      return { input: range, label: val };
+    };
+
+    const mkColor = (getValue, setValue) => {
+      const c = document.createElement("input");
+      c.type = "color";
+      c.value = getValue();
+      c.addEventListener("input", () => setValue(c.value));
+      return { input: c, label: null };
+    };
+
+    const mkSelect = (options, getValue, setValue) => {
+      const sel = document.createElement("select");
+      options.forEach((opt) => {
+        const o = document.createElement("option");
+        o.value = opt; o.textContent = opt;
+        sel.appendChild(o);
+      });
+      sel.value = getValue();
+      sel.addEventListener("change", () => setValue(sel.value));
+      return { input: sel, label: null };
+    };
+
+    const mkCheckbox = (getValue, setValue) => {
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = getValue();
+      cb.addEventListener("change", () => setValue(cb.checked));
+      return { input: cb, label: null };
+    };
+
+    const sectionTitle = (text) => {
+      const h = document.createElement("h2");
+      h.textContent = text;
+      panel.appendChild(h);
+    };
+
+    const onAny = () => { applyLights(); applyMaterials(); applyTone(); };
+
+    // Scene section
+    sectionTitle("Scene");
+    {
+      const c = mkColor(() => STATE.bg, (v) => { STATE.bg = v; });
+      panel.appendChild(mkRow("Background", c.input, c.label));
+    }
+    {
+      const sel = mkSelect(
+        ["none","linear","reinhard","cineon","aces","neutral"],
+        () => STATE.toneMapping,
+        (v) => { STATE.toneMapping = v; applyTone(); }
+      );
+      panel.appendChild(mkRow("Tone Map", sel.input, sel.label));
+    }
+    {
+      const r = mkRange(0.1, 3, 0.05, () => STATE.exposure, (v) => { STATE.exposure = v; applyTone(); });
+      panel.appendChild(mkRow("Exposure", r.input, r.label));
+    }
+    {
+      const cb = mkCheckbox(() => STATE.shadows, (v) => { STATE.shadows = v; applyLights(); });
+      panel.appendChild(mkRow("Shadows", cb.input, cb.label));
+    }
+    {
+      const r = mkRange(-0.005, 0.001, 0.0001, () => STATE.shadowBias, (v) => { STATE.shadowBias = v; applyLights(); }, (v) => v.toFixed(4));
+      panel.appendChild(mkRow("Shadow Bias", r.input, r.label));
+    }
+    {
+      const r = mkRange(0, 16, 0.5, () => STATE.shadowRadius, (v) => { STATE.shadowRadius = v; applyLights(); }, (v) => v.toFixed(1));
+      panel.appendChild(mkRow("Shadow Soft", r.input, r.label));
+    }
+    {
+      const cb = mkCheckbox(() => STATE.orbit, (v) => { STATE.orbit = v; controls.enabled = v; });
+      panel.appendChild(mkRow("Orbit Camera", cb.input, cb.label));
+    }
+    {
+      const cb = mkCheckbox(() => STATE.useBakedCamera, (v) => {
+        STATE.useBakedCamera = v;
+        if (!crashModel) return;
+        camera = v && bakedCamera ? bakedCamera : fitCamera;
+        const { w, h } = stageSize();
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        controls.dispose();
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.enabled = STATE.orbit;
+        const box = new THREE.Box3().setFromObject(crashModel);
+        controls.target.copy(box.getCenter(new THREE.Vector3()));
+        controls.update();
+      });
+      panel.appendChild(mkRow("Baked Cam", cb.input, cb.label));
+    }
+    {
+      const r = mkRange(1.0, 3.0, 0.05, () => STATE.cameraFitPad, (v) => {
+        STATE.cameraFitPad = v;
+        if (crashModel && camera === fitCamera) fitToObject(crashModel, v);
+      });
+      panel.appendChild(mkRow("Fit Padding", r.input, r.label));
+    }
+    {
+      const r = mkRange(0.05, 3.0, 0.05, () => STATE.glbTimescale, (v) => {
+        STATE.glbTimescale = v;
+        if (!mixer) return;
+        // Update every clip action's timeScale so the change applies
+        // mid-playback (not just on next play).
+        clips.forEach((c) => {
+          const a = mixer.clipAction(c);
+          a.timeScale = v;
+        });
+      });
+      panel.appendChild(mkRow("Anim Speed", r.input, r.label));
+    }
+
+    // Materials section
+    sectionTitle("Materials");
+    {
+      const c = mkColor(() => STATE.text, (v) => { STATE.text = v; applyMaterials(); });
+      panel.appendChild(mkRow("Text Color", c.input, c.label));
+    }
+    {
+      const r = mkRange(0, 1, 0.01, () => STATE.textRoughness, (v) => { STATE.textRoughness = v; applyMaterials(); });
+      panel.appendChild(mkRow("Text Rough", r.input, r.label));
+    }
+    {
+      const r = mkRange(0, 1, 0.01, () => STATE.textMetalness, (v) => { STATE.textMetalness = v; applyMaterials(); });
+      panel.appendChild(mkRow("Text Metal", r.input, r.label));
+    }
+    {
+      const c = mkColor(() => STATE.slab, (v) => { STATE.slab = v; applyMaterials(); });
+      panel.appendChild(mkRow("Slab Color", c.input, c.label));
+    }
+    {
+      const r = mkRange(0, 1, 0.01, () => STATE.slabRoughness, (v) => { STATE.slabRoughness = v; applyMaterials(); });
+      panel.appendChild(mkRow("Slab Rough", r.input, r.label));
+    }
+    {
+      const r = mkRange(0, 1, 0.01, () => STATE.slabMetalness, (v) => { STATE.slabMetalness = v; applyMaterials(); });
+      panel.appendChild(mkRow("Slab Metal", r.input, r.label));
+    }
+
+    // Light sections
+    const renderLightSection = (key, label, fields) => {
+      sectionTitle(label);
+      const cfg = STATE.lights[key];
+
+      // Enable toggle row
+      const toggleRow = document.createElement("div");
+      toggleRow.className = "row";
+      const tl = document.createElement("label");
+      tl.textContent = "Enabled";
+      const tcb = document.createElement("input");
+      tcb.type = "checkbox";
+      tcb.checked = cfg.enabled;
+      tcb.addEventListener("change", () => { cfg.enabled = tcb.checked; applyLights(); });
+      const blank = document.createElement("span");
+      toggleRow.appendChild(tl); toggleRow.appendChild(tcb); toggleRow.appendChild(blank);
+      panel.appendChild(toggleRow);
+
+      fields.forEach((f) => {
+        if (f.type === "color") {
+          const c = mkColor(() => cfg[f.field], (v) => { cfg[f.field] = v; applyLights(); });
+          panel.appendChild(mkRow(f.label, c.input, c.label));
+        } else if (f.type === "range") {
+          const r = mkRange(f.min, f.max, f.step, () => cfg[f.field], (v) => { cfg[f.field] = v; applyLights(); }, f.fmt);
+          panel.appendChild(mkRow(f.label, r.input, r.label));
+        } else if (f.type === "checkbox") {
+          const cb = mkCheckbox(() => cfg[f.field], (v) => { cfg[f.field] = v; applyLights(); });
+          panel.appendChild(mkRow(f.label, cb.input, cb.label));
+        }
+      });
+    };
+
+    renderLightSection("ambient", "Ambient", [
+      { type: "color", field: "color", label: "Color" },
+      { type: "range", field: "intensity", label: "Intensity", min: 0, max: 3, step: 0.05 },
+    ]);
+
+    renderLightSection("hemi", "Hemisphere", [
+      { type: "color", field: "sky",    label: "Sky" },
+      { type: "color", field: "ground", label: "Ground" },
+      { type: "range", field: "intensity", label: "Intensity", min: 0, max: 3, step: 0.05 },
+    ]);
+
+    const dirFields = [
+      { type: "color", field: "color", label: "Color" },
+      { type: "range", field: "intensity", label: "Intensity", min: 0, max: 6, step: 0.05 },
+      { type: "range", field: "x", label: "Pos X", min: -10, max: 10, step: 0.1, fmt: (v) => v.toFixed(1) },
+      { type: "range", field: "y", label: "Pos Y", min: -10, max: 10, step: 0.1, fmt: (v) => v.toFixed(1) },
+      { type: "range", field: "z", label: "Pos Z", min: -10, max: 10, step: 0.1, fmt: (v) => v.toFixed(1) },
+      { type: "checkbox", field: "castShadow", label: "Cast Shadow" },
+    ];
+    renderLightSection("key",  "Key Light",  dirFields);
+    renderLightSection("fill", "Fill Light", dirFields);
+    renderLightSection("rim",  "Rim Light",  dirFields);
+    renderLightSection("back", "Back Light", dirFields);
+
+    // Actions
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    const btnPlay = document.createElement("button");
+    btnPlay.textContent = "▶ Play Crash (P)";
+    btnPlay.addEventListener("click", playCrash);
+    actions.appendChild(btnPlay);
+
+    const btnReset = document.createElement("button");
+    btnReset.textContent = "↺ Reset (R)";
+    btnReset.addEventListener("click", resetCrash);
+    actions.appendChild(btnReset);
+
+    const btnCopy = document.createElement("button");
+    btnCopy.className = "full";
+    btnCopy.textContent = "📋 Copy Three.js lighting snippet";
+    btnCopy.addEventListener("click", () => {
+      const code = buildSnippet();
+      navigator.clipboard.writeText(code).then(
+        () => showToast("Lighting snippet copied"),
+        () => showToast("Copy failed — check console")
+      );
+      console.log(code);
+    });
+    actions.appendChild(btnCopy);
+
+    const btnDump = document.createElement("button");
+    btnDump.className = "full";
+    btnDump.textContent = "📋 Copy full STATE (JSON)";
+    btnDump.addEventListener("click", () => {
+      const json = JSON.stringify(STATE, null, 2);
+      navigator.clipboard.writeText(json).then(
+        () => showToast("STATE copied as JSON"),
+        () => showToast("Copy failed — check console")
+      );
+      console.log(json);
+    });
+    actions.appendChild(btnDump);
+
+    panel.appendChild(actions);
+
+    // ─── Snippet builder ─────────────────────────────────────────
+    const hexToHexLit = (h) => h.replace("#", "0x");
+    const fmtNum = (n) => {
+      if (Number.isInteger(n)) return n.toFixed(1);
+      return Number(n.toFixed(4)).toString();
+    };
+
+    function buildSnippet() {
+      const L = STATE.lights;
+      const toneEnum = {
+        none: "THREE.NoToneMapping",
+        linear: "THREE.LinearToneMapping",
+        reinhard: "THREE.ReinhardToneMapping",
+        cineon: "THREE.CineonToneMapping",
+        aces: "THREE.ACESFilmicToneMapping",
+        neutral: "THREE.AgXToneMapping",
+      }[STATE.toneMapping];
+
+      return `// ─── Renderer ───────────────────────────────────────────
+renderer.shadowMap.enabled = ${STATE.shadows}
+renderer.shadowMap.type = THREE.PCFSoftShadowMap
+;(renderer as any).outputColorSpace = (THREE as any).SRGBColorSpace
+renderer.toneMapping = ${toneEnum}
+renderer.toneMappingExposure = ${fmtNum(STATE.exposure)}
+
+// ─── Lights ─────────────────────────────────────────────
+const ambient = new THREE.AmbientLight(${hexToHexLit(L.ambient.color)}, ${fmtNum(L.ambient.enabled ? L.ambient.intensity : 0)})
+const hemi = new THREE.HemisphereLight(${hexToHexLit(L.hemi.sky)}, ${hexToHexLit(L.hemi.ground)}, ${fmtNum(L.hemi.enabled ? L.hemi.intensity : 0)})
+scene.add(ambient, hemi)
+
+const key = new THREE.DirectionalLight(${hexToHexLit(L.key.color)}, ${fmtNum(L.key.enabled ? L.key.intensity : 0)})
+key.position.set(${fmtNum(L.key.x)}, ${fmtNum(L.key.y)}, ${fmtNum(L.key.z)})
+key.castShadow = ${L.key.castShadow && STATE.shadows}
+key.shadow.mapSize.set(2048, 2048)
+key.shadow.bias = ${STATE.shadowBias}
+key.shadow.radius = ${fmtNum(STATE.shadowRadius)}
+key.shadow.camera.near = 0.1
+key.shadow.camera.far = 25
+key.shadow.camera.left = -6
+key.shadow.camera.right = 6
+key.shadow.camera.top = 4
+key.shadow.camera.bottom = -4
+scene.add(key)
+
+const fill = new THREE.DirectionalLight(${hexToHexLit(L.fill.color)}, ${fmtNum(L.fill.enabled ? L.fill.intensity : 0)})
+fill.position.set(${fmtNum(L.fill.x)}, ${fmtNum(L.fill.y)}, ${fmtNum(L.fill.z)})
+scene.add(fill)
+
+const rim = new THREE.DirectionalLight(${hexToHexLit(L.rim.color)}, ${fmtNum(L.rim.enabled ? L.rim.intensity : 0)})
+rim.position.set(${fmtNum(L.rim.x)}, ${fmtNum(L.rim.y)}, ${fmtNum(L.rim.z)})
+scene.add(rim)
+
+const back = new THREE.DirectionalLight(${hexToHexLit(L.back.color)}, ${fmtNum(L.back.enabled ? L.back.intensity : 0)})
+back.position.set(${fmtNum(L.back.x)}, ${fmtNum(L.back.y)}, ${fmtNum(L.back.z)})
+scene.add(back)
+
+// ─── Materials ──────────────────────────────────────────
+const matText = new THREE.MeshStandardMaterial({
+    color: ${hexToHexLit(STATE.text)},
+    roughness: ${fmtNum(STATE.textRoughness)},
+    metalness: ${fmtNum(STATE.textMetalness)},
+    side: THREE.FrontSide,
+})
+const matSlab = new THREE.MeshStandardMaterial({
+    color: ${hexToHexLit(STATE.slab)},
+    roughness: ${fmtNum(STATE.slabRoughness)},
+    metalness: ${fmtNum(STATE.slabMetalness)},
+    side: THREE.FrontSide,
+})
+`;
+    }
+  </script>
+</body>
+</html>
